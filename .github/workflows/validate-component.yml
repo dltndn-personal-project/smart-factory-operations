@@ -1,0 +1,67 @@
+name: Validate Component
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r agent/core/requirements.txt
+      - name: Validate agent files, Shared records and agent/core
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          # A private Shared repository needs a read-only token in this secret.
+          GH_TOKEN: ${{ secrets.SHARED_READ_TOKEN || github.token }}
+        run: python agent/core/tools/validate.py --base "$BASE_SHA" --remote
+      - run: python -m unittest discover -s agent/core/tools -p 'test_*.py'
+
+  # PR code runs here with a read-only token.
+  approval-scope:
+    needs: validate
+    if: >-
+      github.event_name == 'pull_request' && !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.scope.outputs.eligible }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r agent/core/requirements.txt
+      - id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python agent/core/tools/auto_approval.py --base "$BASE_SHA" >> "$GITHUB_OUTPUT"
+
+  # Only learning-layer PRs reach this job. Everything else waits for CODEOWNERS.
+  auto-approve:
+    needs: approval-scope
+    if: needs.approval-scope.outputs.eligible == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr review "$PR_URL" --approve --body "학습 층(LESSONS, 회고)만 바꾸고 Validate Component를 통과하여 자동 승인합니다."
+          gh pr merge "$PR_URL" --auto --squash

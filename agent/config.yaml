@@ -1,0 +1,17 @@
+# 사람이 관리한다. 검증을 약하게 만드는 변경은 자동 채택 경로로 올리지 않는다.
+
+# 모든 task를 완료하기 전에 실행하는 공통 검사. 실제로 실행해 본 명령만 적는다.
+# 예: - {name: test, run: "pytest -q"}
+verify: []
+
+budget:
+  verify_attempts: 3            # 같은 검증 항목이 이 횟수만큼 실패하면 멈춘다
+  tasks_per_session: 5          # 한 세션에서 끝낼 최대 task 수
+  improvements_per_session: 2   # 한 세션에서 올릴 최대 개선 제안 수
+  check_timeout: 1800           # 검증 명령 하나의 제한 시간(초)
+
+improvement:
+  window: 10                    # 개선 후보를 찾을 최근 회고 수
+  repeat: 2                     # 같은 tag가 이 수 이상의 회고에 나오면 개선 후보
+  review_after: 5               # trial lesson을 평가하기 전까지의 회고 수
+  max_lessons: 20               # 활성 lesson 상한. 넘으면 통합하거나 삭제한다

@@ -1,0 +1,44 @@
+# 예시: Shared Issue 처리 기록. 실제 처리 상태 계산에서 제외한다. issues의 키가 원격 Issue ID다.
+issues:
+  SAMPLE-DECISION:
+    status: decision_required
+    source_revision: <Shared review SHA>
+    component_revision: <Component commit SHA>
+    contract_ref: <Shared contract SHA>
+    reason: 이전 이벤트를 병행 지원할 기간의 결정이 필요함
+    evidence: []
+    decision_owner: <결정 담당>
+    question: 이전 이벤트를 언제까지 지원할 것인가
+  SAMPLE-DEFERRED:
+    status: deferred
+    source_revision: <Shared review SHA>
+    component_revision: <Component commit SHA>
+    contract_ref: <Shared contract SHA>
+    reason: 다음 계약 갱신에서 대응
+    evidence: []
+    task: COMPONENT-52
+    resume_when: 다음 계약 갱신 작업 시작 시
+  SAMPLE-NO-IMPACT:
+    status: no_impact
+    source_revision: <Shared review SHA>
+    component_revision: <Component commit SHA>
+    contract_ref: <Shared contract SHA>
+    reason: 이 Component는 이미지 파일을 사용하지 않음
+    evidence:
+    - <확인한 사용 범위>
+  SAMPLE-REPLY:
+    status: applied
+    source_revision: <Shared review SHA>
+    component_revision: <Component commit SHA>
+    contract_ref: <Shared contract SHA>
+    reason: 수정된 producer 버전과의 조합으로 재검증함
+    evidence:
+    - <실제 테스트 결과 또는 PR 링크>
+  SAMPLE-REQUEST:
+    status: affected
+    source_revision: <Shared 목록과 본문을 읽은 commit SHA>
+    component_revision: <검토한 Component commit SHA>
+    contract_ref: <구현 기준 Shared commit SHA>
+    reason: 결과 파일을 사용하므로 영향 있음. 이번에는 분석만 요청받음
+    evidence:
+    - src/result_reader.py에서 이벤트 직후 파일을 여는 것을 확인

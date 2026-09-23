@@ -1,0 +1,18 @@
+{
+  "shared_contract": {
+    "repository": "organization/shared-contract",
+    "revision": "<검증한 Shared 계약의 전체 commit SHA>"
+  },
+  "components": [
+    {
+      "name": "producer",
+      "repository": "organization/producer",
+      "revision": "<검증한 Component의 전체 commit SHA 또는 이미지 digest>"
+    },
+    {
+      "name": "consumer",
+      "repository": "organization/consumer",
+      "revision": "<검증한 Component의 전체 commit SHA 또는 이미지 digest>"
+    }
+  ]
+}

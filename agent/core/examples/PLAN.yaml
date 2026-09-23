@@ -1,0 +1,83 @@
+# 예시: 제품 이미지 결함을 판정하는 가상 Component의 계획. 실제 계획으로 취급하지 않는다.
+milestones:
+  - id: M1
+    outcome: 판정 결과를 계약대로 result.ready 이벤트로 발행한다
+    exit_criteria:
+      - Integration 조합 테스트에서 consumer가 result.ready를 수신하고 결과 파일을 연다
+  - id: M2
+    outcome: 판정 정확도를 매 배포 전에 측정한다
+    exit_criteria:
+      - 기준 데이터셋 정확도가 기록된다
+    proposed: true                      # Agent가 제안, 사람 승인 전
+tasks:
+  - id: T-1
+    milestone: M1
+    type: feature
+    title: 판정 결과 모델 정의
+    why: 발행과 저장이 같은 결과 구조를 써야 한다
+    depends_on: []
+    scope: [src/result/**, tests/result/**]
+    acceptance:
+      - id: A1
+        text: 결과 모델이 결함 유형, 신뢰도, 이미지 경로를 가진다
+        check: {type: command, run: "pytest -q tests/result"}
+    size: S
+  - id: T-2
+    milestone: M1
+    type: feature
+    title: result.ready 이벤트 발행
+    why: consumer가 판정 완료를 알아야 한다
+    depends_on: [T-1]
+    contract: [docs/INTERFACES.md#result.ready]
+    scope: [src/events/**, tests/events/**]
+    acceptance:
+      - id: A1
+        text: 결과 저장이 끝난 뒤 이벤트가 정확히 한 번 발행된다
+        check: {type: command, run: "pytest -q tests/events -k ready"}
+      - id: A2
+        text: payload 스키마 보고서가 생성된다
+        check: {type: artifact, path: build/result-ready-schema.json}
+    size: M
+  - id: T-3
+    milestone: M1
+    type: investigate
+    title: 이벤트 직후 이미지 접근 실패 재현
+    why: consumer가 이벤트 직후 파일을 열지 못한다는 Shared MESSAGE를 받았다
+    depends_on: [T-2]
+    scope: [tests/repro/**, docs/investigations/**]
+    acceptance:
+      - id: A1
+        text: 재현 테스트가 실패 조건을 문서화된 대로 재현한다
+        check: {type: command, run: "pytest -q tests/repro -k image_access"}
+      - id: A2
+        text: 원인과 선택지를 정리한 조사 문서가 있다
+        check: {type: artifact, path: docs/investigations/image-access.md}
+    size: S
+  - id: T-4
+    milestone: M1
+    type: fix
+    title: 파일 기록 완료 후 이벤트 발행
+    why: T-3에서 발행이 파일 flush보다 앞선다는 것을 확인했다
+    depends_on: [T-3]
+    scope: [src/events/**, src/storage/**, tests/events/**]
+    acceptance:
+      - id: A1
+        text: 이벤트 수신 직후 파일을 열 수 있다
+        check: {type: command, run: "pytest -q tests/events -k file_ready"}
+    size: S
+    proposed: true
+  - id: T-5
+    milestone: M2
+    type: feature
+    title: 기준 데이터셋 정확도 측정
+    why: 모델 교체 시 회귀를 막는다
+    depends_on: []
+    scope: [eval/**]
+    acceptance:
+      - id: A1
+        text: 기준 데이터셋 정확도가 0.95 이상이다
+        check: {type: metric, run: "python eval/accuracy.py --dataset baseline", min: 0.95}
+      - id: A2
+        text: 도메인 담당자가 오판정 사례 표본을 확인했다
+        check: {type: manual, how: "eval/report.html의 오판정 20건을 도메인 담당자가 검토"}
+    size: M

@@ -1,0 +1,9 @@
+# 예시: 두 회고에서 반복된 마찰로 만든 trial lesson.
+lessons:
+  - id: L-1
+    tag: guessed-fixture-path
+    rule: 테스트 fixture 경로는 추측하지 말고 tests/fixtures/README.md에서 확인한다
+    applies_to: [plan, execute]
+    source: [T-1-1, T-2-1]
+    status: trial
+    introduced_at: '2026-01-04T16:00:00Z'

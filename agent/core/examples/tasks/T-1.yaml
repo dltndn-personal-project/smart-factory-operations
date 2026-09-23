@@ -1,0 +1,5 @@
+status: done
+commit: '3333333333333333333333333333333333333333'
+finished_at: '2026-01-02T10:00:00Z'
+checks:
+  A1: pass

@@ -1,0 +1,2 @@
+# Issue ID를 issues의 키로 사용한다. 색인 순서대로 기록하며 항목이 없으면 unreviewed다.
+issues: {}

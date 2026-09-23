@@ -1,0 +1,25 @@
+task: T-2
+result: done
+created_at: '2026-01-04T14:50:00Z'
+signals:
+  verify_attempts: 2
+  stops: []
+  scope_violations: 0
+  deviations: ["artifact 검사 전에 스키마 보고서 생성 명령을 수동으로 실행함"]
+friction:
+  - tag: guessed-fixture-path
+    cause: AGENT
+    severity: low
+    what: 이벤트 테스트에서도 fixture 경로를 추측했다
+    evidence: ["pytest: FileNotFoundError tests/data/event.json"]
+    proposal: fixture 경로는 tests/fixtures/README.md에서 확인한다
+    doc: null
+  - tag: artifact-needs-build-step
+    cause: PROCESS
+    severity: low
+    what: artifact 검사는 파일 존재만 보므로 생성 명령을 언제 실행할지 절차에 없다
+    evidence: ["verify: A2 fail (build/result-ready-schema.json 없음)"]
+    proposal: 40-verify.md에 artifact를 만드는 명령은 execute 단계의 step으로 둔다고 명시
+    doc: agent/core/process/40-verify.md
+lessons_applied: []
+share: NONE

@@ -1,0 +1,25 @@
+# 예시: T-3을 검증하는 중인 세션. 도구가 관리하며 steps와 next_action만 Agent가 직접 쓴다.
+task: T-3
+phase: verify
+base_commit: '1111111111111111111111111111111111111111'
+started_at: '2026-01-05T09:00:00Z'
+steps:
+  - do: 이벤트 수신 직후 파일을 여는 재현 테스트 작성
+    check: A1
+    done: true
+  - do: 조사 문서에 원인과 선택지 정리
+    check: A2
+    done: true
+    note: 계획과 달리 storage 로그도 확인함 (회고 deviations에 기록)
+attempts:
+  A1: 1
+evidence:
+  A1:
+    result: fail
+    commit: '2222222222222222222222222222222222222222'
+    output: "FAILED tests/repro/test_image_access.py - fixture not found"
+  A2:
+    result: pass
+    commit: '2222222222222222222222222222222222222222'
+    output: docs/investigations/image-access.md
+next_action: 재현 테스트 fixture 경로를 tests/fixtures/README.md에서 확인하고 고친 뒤 다시 verify한다

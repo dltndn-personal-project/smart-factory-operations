@@ -1,0 +1,18 @@
+task: T-1
+result: done
+created_at: '2026-01-02T09:50:00Z'
+signals:
+  verify_attempts: 1
+  stops: []
+  scope_violations: 0
+  deviations: []
+friction:
+  - tag: guessed-fixture-path
+    cause: AGENT
+    severity: low
+    what: 테스트 fixture 경로를 추측해서 첫 검증이 실패했다
+    evidence: ["pytest: FileNotFoundError tests/data/sample.png"]
+    proposal: fixture 경로는 tests/fixtures/README.md에서 확인한다
+    doc: null
+lessons_applied: []
+share: NONE
