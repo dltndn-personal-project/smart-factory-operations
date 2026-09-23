@@ -1,6 +1,6 @@
 {
-  "repository": null,
+  "repository": "dltndn-personal-project/smart-factory-shared-repository",
   "component": "factory-operations",
   "contract_ref": null,
-  "process_ref": null
+  "process_ref": "c36152e6bbc88fc3a0a0e1eab74fadb7794d3489"
 }
