@@ -16,12 +16,12 @@
 ## 멈출 때
 
 1. 추측으로 진행하지 않는다. 지금까지의 변경을 commit한다.
-2. `agent.py retro --result blocked`로 회고를 만들고 `stops`에 분류, `friction`에 원인을 쓴다.
-3. `agent.py block --reason "<무엇이 막혔나>" --unblock-when "<해제 조건>" --owner "<결정할 사람이나 Component>"`.
+2. 사용자가 회고를 요청했으면 `agent.py retro --result blocked`로 회고를 만들고 `stops`에 분류, `friction`에 원인을 쓴다.
+3. `agent.py block --reason "<stops 분류>: <무엇이 막혔나>" --unblock-when "<해제 조건>" --owner "<결정할 사람이나 Component>"`.
 4. commit하고 PR 또는 브랜치를 남긴다. PR 본문에 사람에게 필요한 질문을 선택지와 함께 적는다.
 5. 독립적인 다음 task로 넘어간다(`00-session.md`).
 
-더 할 가치가 없는 task는 같은 방식으로 `agent.py retro --result dropped` 후 `agent.py drop --reason "<이유>"`.
+더 할 가치가 없는 task는 `agent.py drop --reason "<이유>"`. 회고를 요청받았으면 먼저 `agent.py retro --result dropped`.
 
 해제: 사람이 해제 조건을 해결하고 `agent/tasks/<id>.yaml`을 삭제하면 다시 시작할 수 있다. 필요하면 PLAN의 task를 고친다.
 

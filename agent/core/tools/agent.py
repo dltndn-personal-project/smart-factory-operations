@@ -5,7 +5,7 @@ next       다음 행동과 읽을 문서를 출력한다
 start      task를 시작한다
 phase      세션 단계를 바꾼다
 verify     acceptance와 공통 검증을 실행하고 commit 기준 증거를 기록한다
-retro      이번 task의 회고 초안을 만든다
+retro      사용자가 요청하면 이번 task의 회고 초안을 만든다
 finish     완료 게이트를 통과하면 task 결과를 기록한다
 block      task를 차단 상태로 기록한다
 drop       task를 폐기 상태로 기록한다
@@ -236,7 +236,7 @@ def cmd_verify(args):
     elif failed:
         session["next_action"] = f"{failed} 실패 원인을 고치고 commit한 뒤 다시 verify한다"
     else:
-        session["next_action"] = "agent.py retro --result done으로 회고를 작성한다"
+        session["next_action"] = "agent.py finish로 완료를 기록한다 (사용자가 회고를 요청했으면 먼저 agent.py retro --result done)"
     save(SESSION, session)
     print(session["next_action"])
     return 1 if failed else 0
@@ -272,20 +272,22 @@ def in_scope(name, task):
     return any(fnmatch.fnmatch(name, pattern) for pattern in task["scope"])
 
 
-def session_retro(session, result):
+def check_retro(session, result):
+    """A retrospective is written only on request; once started, it must match how the task ends."""
+    if session["phase"] != "reflect":
+        return
     mine = [retro for retro in retros() if retro["task"] == session["task"] and retro["created_at"] >= session["started_at"]]
     if not mine or mine[-1]["result"] != result:
-        raise Stop(f"이번 세션의 result: {result} 회고가 없다. agent.py retro --result {result}로 만들고 50-reflect.md에 따라 채운다.")
-    return mine[-1]
+        raise Stop(f"작성 중인 회고의 result가 {result}가 아니다. agent.py retro --result {result}로 다시 만들고 50-reflect.md에 따라 채운다.")
 
 
 def cmd_finish(args):
     _, tasks, _, settings = context()
     session = active()
     task = tasks[session["task"]]
-    if session["phase"] != "reflect":
-        raise Stop("회고 전이다. verify를 통과한 뒤 agent.py retro --result done으로 회고를 작성한다.")
-    session_retro(session, "done")
+    if session["phase"] not in ("verify", "reflect"):
+        raise Stop("검증 전이다. agent.py verify를 먼저 실행한다.")
+    check_retro(session, "done")
     outside = [item for item in changed_since(session["base_commit"]) if not is_state(item) and not in_scope(item, task)]
     if outside:
         raise Stop(f"scope 밖 변경: {outside}. 되돌리거나 80-escalate.md에 따라 멈춘다.")
@@ -318,7 +320,7 @@ def cmd_finish(args):
 def close(args, status):
     context()
     session = active()
-    session_retro(session, status)
+    check_retro(session, status)
     outcome = {"status": status, "reason": args.reason}
     if status == "blocked":
         outcome.update(unblock_when=args.unblock_when, owner=args.owner)

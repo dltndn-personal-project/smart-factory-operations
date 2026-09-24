@@ -1,6 +1,11 @@
 # 50 회고
 
-task가 끝나거나(done) 멈출 때(blocked, dropped) 반드시 쓴다. `agent.py retro --result <결과>`가 초안을 만든다. 예시는 `agent/core/examples/retros/`.
+사용자가 현재 대화에서 명시적으로 요청했을 때만 쓴다. 요청이 없으면 회고 없이 finish, block, drop으로 task를 끝낸다.
+
+- 요청은 task가 진행 중일 때(finish, block, drop 전) 반영한다. 회고의 signals는 진행 중인 세션에서만 채울 수 있다.
+- task의 결과(done, blocked, dropped)가 정해지면 `agent.py retro --result <결과>`가 초안을 만든다. 예시는 `agent/core/examples/retros/`.
+- 회고를 쓰면 finish, block, drop은 그 회고의 result가 실제 결과와 같은지 확인한다. 결과가 바뀌면 새 result로 다시 만든다.
+- 개선 후보(`60-improve.md`)는 작성된 회고에서만 나온다.
 
 ## 작성
 

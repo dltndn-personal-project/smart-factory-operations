@@ -43,23 +43,37 @@ class AgentLoopTests(unittest.TestCase):
         self.assertEqual(self.run_agent("start", "T2")[0], 2)
         self.assertIn("진행 중: T2", self.run_agent("next")[1])
 
-    def test_task_passes_verify_retro_and_finish_gates(self):
+    def test_task_passes_verify_and_finish_gates_without_a_retrospective(self):
         self.component.plan(Component.task("T1"))
         self.component.commit()
         self.run_agent("start", "T1")
         self.plan_steps()
         self.component.write("src/done.txt")
+        self.assertEqual(self.run_agent("finish")[0], 2)  # not verified yet
         self.assertEqual(self.run_agent("verify")[0], 2)  # uncommitted work is refused
         self.component.commit()
 
         code, output = self.run_agent("verify")
         self.assertEqual(code, 0, output)
-        self.assertEqual(self.run_agent("finish")[0], 2)  # no retrospective yet
-        self.assertEqual(self.run_agent("retro", "--result", "done")[0], 0)
         code, output = self.run_agent("finish")
         self.assertEqual(code, 0, output)
         self.assertEqual(self.component.read_yaml("agent/tasks/T1.yaml")["status"], "done")
         self.assertIsNone(self.component.read_yaml(agent.SESSION)["task"])
+        self.assertEqual(list((self.component.root / "agent/retros").glob("*.yaml")), [])
+
+    def test_a_requested_retrospective_must_match_how_the_task_ends(self):
+        self.component.plan(Component.task("T1"))
+        self.component.commit()
+        self.run_agent("start", "T1")
+        self.plan_steps()
+        self.component.write("src/done.txt")
+        self.component.commit()
+        self.run_agent("verify")
+        self.assertEqual(self.run_agent("retro", "--result", "done")[0], 0)
+        self.assertEqual(self.run_agent("drop", "--reason", "not needed")[0], 2)  # the retrospective says done
+        code, output = self.run_agent("finish")
+        self.assertEqual(code, 0, output)
+        self.assertTrue((self.component.root / "agent/retros/T1-1.yaml").exists())
 
     def test_finish_rejects_changes_outside_the_scope(self):
         self.component.plan(Component.task("T1"))
@@ -84,8 +98,6 @@ class AgentLoopTests(unittest.TestCase):
         code, output = self.run_agent("verify")
         self.assertEqual(code, 1)
         self.assertIn("80-escalate", output)
-        self.assertEqual(self.run_agent("block", "--reason", "no fixture", "--unblock-when", "fixture exists", "--owner", "human")[0], 2)
-        self.run_agent("retro", "--result", "blocked")
         self.assertEqual(self.run_agent("block", "--reason", "no fixture", "--unblock-when", "fixture exists", "--owner", "human")[0], 0)
         self.assertEqual(self.component.read_yaml("agent/tasks/T1.yaml")["status"], "blocked")
         self.assertIn("다음 task: T2", self.run_agent("next")[1])

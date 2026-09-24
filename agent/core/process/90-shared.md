@@ -88,14 +88,14 @@ Shared PR 생성은 상대가 읽었다는 증거가 아니다. 긴급한 확인
 3. `python3 -m unittest discover -s agent/core/tools -p 'test_*.py'`와 `validate.py --remote`를 실행한다.
 4. 채택한 변경이 로컬 lesson을 대신하면 그 lesson을 삭제한다. 로컬 파일이 새 절차와 맞지 않으면 함께 고친다.
 5. 기록은 applied, evidence에 테스트 결과와 PR 링크를 적는다. 같은 `process_ref`에 이미 포함된 뒤쪽 `agent-core` Issue는 자기 차례에 applied로 기록하고 evidence에 포함 사실을 적는다.
-6. 새 `process_ref`가 문제를 일으키면 이전 `process_ref`로 다시 sync-core하고 PROCESS 회고를 남긴다.
+6. 새 `process_ref`가 문제를 일으키면 이전 `process_ref`로 다시 sync-core하고 원인을 세션 보고에 남긴다. 회고를 요청받았으면 PROCESS 마찰로 기록한다.
 
 ## 7. 프로세스 개선 제안 (PROCESS 경로)
 
 `60-improve.md`에서 cause가 PROCESS인 후보를 Shared에 제안한다.
 
 1. Shared 최신 commit의 `agent-core/`에서 해당 파일을 고친다. 도구를 바꾸면 테스트도 고친다. 로컬 `agent/core`는 고치지 않는다.
-2. DOCUMENT_CHANGE를 작성한다. `changed_documents`에 바꾼 `agent-core/` 경로, `reason`에 근거 회고 ID와 마찰, `attention: []`(모든 Component), `transition.adoption`에 "각 Component가 sync-core로 채택", `rollback`에 "이전 process_ref로 sync-core"를 적는다.
+2. DOCUMENT_CHANGE를 작성한다. `changed_documents`에 바꾼 `agent-core/` 경로, `reason`에 근거 회고 ID(없으면 사용자 요청)와 마찰, `attention: []`(모든 Component), `transition.adoption`에 "각 Component가 sync-core로 채택", `rollback`에 "이전 process_ref로 sync-core"를 적는다.
 3. 5절의 게시 절차로 PR을 만든다. Shared CODEOWNERS 승인 후 merge된다. 게시 권한이 없으면 초안을 남기고 게시 미완료로 보고한다.
 4. merge된 뒤 제안한 Component도 6절로 채택한다.
 

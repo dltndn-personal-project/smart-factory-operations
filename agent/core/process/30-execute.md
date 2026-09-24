@@ -2,7 +2,7 @@
 
 1. `steps`를 순서대로 수행한다. step이 끝나면 그 `check`를 실행하고 `done: true`로 바꾼 뒤 commit한다.
 2. task의 `scope` 밖 파일은 바꾸지 않는다. 필요해지면 되돌리고 `80-escalate.md`의 scope로 멈춘다.
-3. 계획과 다르게 진행했으면 그 step의 `note`에 이유를 쓴다. 회고의 `deviations`로 옮긴다.
+3. 계획과 다르게 진행했으면 그 step의 `note`에 이유를 쓴다. 회고를 쓰면 `deviations`로 옮긴다.
 4. 새 step이 필요하면 추가한다. step이 8개를 넘으면 `20-plan.md` 3절대로 분해를 제안한다.
 5. 같은 step이 3번 실패하거나 원인을 설명할 수 없으면 `80-escalate.md`의 repeated-failure로 멈춘다.
 6. 검증에 필요한 artifact(보고서, 빌드 결과)를 만드는 명령도 step으로 두고 실행한다.

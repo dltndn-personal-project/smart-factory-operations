@@ -7,6 +7,6 @@
    - 검사를 약하게 바꾸거나 건너뛰어 통과시키지 않는다.
 4. 같은 항목이 `budget.verify_attempts`회 실패하면 도구가 멈춤을 알린다. `80-escalate.md`의 repeated-failure로 멈춘다.
 5. manual 항목은 pending으로 남는다. 확인 방법을 PR 본문에 적는다. 사람이 확인하면 `agent/tasks/<id>.yaml`을 done으로 바꾼다.
-6. 모두 pass(또는 manual pending)면 `agent.py retro --result done`을 실행하고 `50-reflect.md`로 간다.
+6. 모두 pass(또는 manual pending)면 `agent.py finish`를 실행한다. 사용자가 회고를 요청했으면 먼저 `agent.py retro --result done`을 실행하고 `50-reflect.md`를 따른다.
 
-회고를 쓴 뒤 상태 파일이 아닌 파일을 바꾸면 finish가 거부한다. 그 경우 verify부터 다시 한다.
+검증 후 상태 파일이 아닌 파일을 바꾸면 finish가 거부한다. 그 경우 verify부터 다시 한다.

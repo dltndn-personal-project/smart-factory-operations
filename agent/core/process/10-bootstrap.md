@@ -15,7 +15,7 @@
 2. `docs/COMPONENT.md`의 `<미정: ...>`을 채운다. 저장소에서 확인할 수 없는 목적·경계는 사람에게 질문으로 남기고 `80-escalate.md`의 ambiguity로 멈춘다.
 3. build·test·lint 명령을 찾아 **실제로 실행**한다. 통과하는 명령만 `verify`에 넣는다. 실패하는 명령은 원인과 함께 PR 본문에 적는다.
 4. 사람에게 받은 목표나 저장소의 문서에 있는 목표로 milestone과 첫 task 분해를 `proposed: true`로 추가한다(`20-plan.md`의 plan task 규칙).
-5. `agent.py verify` → 회고 → finish. A3(manual)은 사람이 proposed 표시를 지워 승인할 때까지 verifying으로 남는다.
+5. `agent.py verify` → finish. A3(manual)은 사람이 proposed 표시를 지워 승인할 때까지 verifying으로 남는다.
 
 ## 도메인에 자동 테스트가 없을 때
 

@@ -13,11 +13,11 @@
 | `process/20-plan.md` | task 계획과 milestone 분해 |
 | `process/30-execute.md` | 실행 |
 | `process/40-verify.md` | 검증 |
-| `process/50-reflect.md` | 회고 |
+| `process/50-reflect.md` | 회고 (사용자가 요청할 때만) |
 | `process/60-improve.md` | 개선 제안과 채택 |
 | `process/80-escalate.md` | 멈춤 조건과 보고 |
 | `process/90-shared.md` | Shared 계약 조회, Issue 검토, 프로세스 채택, 게시 |
-| `tools/agent.py` | 작업 루프: next, start, phase, verify, retro, finish, block, drop, scan, sync-core |
+| `tools/agent.py` | 작업 루프: next, start, phase, verify, retro(요청 시), finish, block, drop, scan, sync-core |
 | `tools/validate.py` | 모든 agent 파일과 Shared 기록 검사 |
 | `tools/auto_approval.py` | 학습 층만 바꾼 PR의 자동 승인 판정 |
 | `examples/` | 가상 도메인으로 쓴 작성 예시. 실제 상태가 아니다 |
