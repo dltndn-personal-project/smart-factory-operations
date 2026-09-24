@@ -40,6 +40,8 @@
 ## Shared
 
 - 일반 작업을 시작할 때 Shared Issue 목록을 조회하지 않는다. task의 `contract`에 적힌 문서만 `contract_ref` 기준으로 읽는다.
+- Shared 문서(ARCHITECTURE·INTERFACES·CONVENTIONS, Issue, `agent-core`)는 `SHARED_CONFIG.json`의 `repository` 원격에서 `90-shared.md` 명령(`gh api` Contents API)으로 고정된 commit을 지정하여 읽는다. 작업 공간의 인접 `shared-repository/` 폴더, 로컬 clone, 상대 링크는 원격과 다른 버전일 수 있으므로 원본으로 쓰지 않는다. (읽은 기준을 commit SHA로 추적하기 위해)
+- 문서나 사용자 요청이 Shared 문서를 가리키면 먼저 `90-shared.md` 1절을 연다. `contract_ref`가 null이면 구현 기준으로 쓰지 않는다. 참고로만 읽을 때는 2절처럼 원격 기본 브랜치의 현재 commit을 고정하고 그 SHA를 보고에 밝힌다. 원격 조회가 실패하면 로컬 사본으로 대체하지 않고 실패로 보고한다.
 - Shared Issue 검토와 프로세스 채택은 사용자가 명시적으로 요청할 때만 `90-shared.md`에 따라 수행한다.
 
 ## 검사
