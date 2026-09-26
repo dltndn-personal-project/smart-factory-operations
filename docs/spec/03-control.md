@@ -13,7 +13,7 @@
 | `latest` | 마지막으로 받은 `LineStatus`(online true)와 수신 시각. `online: false`를 받아도 지우지 않는다(화면에 마지막 값 표시) |
 | `online` | null(미수신) \| true \| false |
 | `reference_time` | **재가동 기준 시각**. null 또는 Payload timestamp(Simulator 시계). 1.2절 |
-| `fault_changes` | `(timestamp, fault_level)` 변화점 목록(04 1절 결합용). `timestamp`가 최근 600초 안인 변화점과, 그보다 오래된 것 중 **가장 최근 변화점 하나**를 유지한다(값이 10분 넘게 그대로여도 현재 구간의 시작점이 남는다) |
+| `fault_changes` | `(timestamp, fault_level)` 변화점 목록(04 1절 결합용). `timestamp`가 최근 600초(마지막으로 받은 online Line Status `timestamp` 기준, 같은 Simulator 시계) 안인 변화점과, 그보다 오래된 것 중 **가장 최근 변화점 하나**를 유지한다(값이 10분 넘게 그대로여도 현재 구간의 시작점이 남는다) |
 | `last_conveyor` | 마지막으로 받은 online Line Status의 `conveyor`. `online: false`를 받아도 바꾸지 않는다. 재가동 이벤트 판정용 |
 | `line_sensor_id` | `latest.sensor_id`, 없으면 설정 `line.sensor_id` |
 
@@ -31,6 +31,8 @@
 3. 이전에 기록한 값과 `online`, `conveyor`, `fault_level`, `production_active` 중 하나라도 다르거나 첫 수신이면 `line_status_change` 행을 쓴다. 1초 주기 메시지는 쓰지 않는다.
 4. 마지막 변화점과 `fault_level`이 다르거나 변화점이 없으면 `(ls.timestamp, ls.fault_level)`을 추가한다.
 5. 명령 결과 확인(3.4절) → Interlock 평가(3.2절).
+
+`LineTracker.update()`는 DB 작업을 만들지 않고 `LineUpdate(record_change, restart, reference_changed, fault_changed)`를 돌려준다. 워커가 `record_change`로 `line_status_change` 작업을, `restart`로 Alarm 초기화(4절)를 한다. 화면용으로는 바뀌지 않는 `LineView`(`view()`)를 StateStore `line`에 넣는다.
 
 - 재가동 기준 시각의 목적: 정지 중에는 PdM이 결과를 내지 않으므로(`rpm == 0` 미발행, `AGREEMENTS.md` A-05) 정지 원인이 된 `CRITICAL`이 마지막 결과로 오래 남는다. 기준 시각 이후의 결과만 판정에 쓰면, 재가동 직후 그 옛 결과로 다시 멈추지 않고, 재가동 뒤 PdM이 새로 `CRITICAL`을 내면 다시 멈춘다.
 - 기준 시각과 PdM `timestamp`는 둘 다 Simulator 시계 값이라 직접 비교한다(01 5절). PdM은 rpm이 바뀌면 버퍼를 비우고 가동 chunk 10개(1초)를 모은 뒤 첫 결과를 내므로, 재가동 뒤 첫 결과의 `timestamp`(윈도우 끝)는 재가동을 알린 Line Status의 `timestamp`보다 약 1초 뒤다. 재가동 전 윈도우의 결과는 정지 시각보다 앞선다. 따라서 `pdm.timestamp > reference_time` 비교로 둘이 갈린다.
