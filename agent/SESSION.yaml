@@ -18,7 +18,7 @@ steps:
   note: make smoke 두 번 연속 통과(각 약 10초), A4·A5 확인
 - do: 'agent/config.yaml verify에 {name: smoke, run: "make smoke"} 추가, validate.py --remote'
   check: A6
-  done: false
+  done: true
 attempts: {}
 evidence: {}
-next_action: step 4 agent/config.yaml verify smoke
+next_action: agent.py verify
