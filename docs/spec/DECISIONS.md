@@ -146,8 +146,8 @@
 - 영향: `02-mqtt.md` 4.2절
 
 ### D-21 Alarm 규칙
-- 결정: 심각도가 올라가 `WARNING`·`CRITICAL`이 될 때만 Alarm. 재가동 때 이전 상태 초기화. 재가동 기준 이전 결과 제외. ack·해제·떨림 억제 없음.
-- 이유: Shared 4.4의 필수 대상(Warning, Critical)을 만족하는 최소 규칙이다. 재가동 뒤 같은 고장이 다시 드러나면 새 Alarm으로 보이게 한다. 떨림 억제는 PdM 평활화 책임이다.
+- 결정: 심각도가 올라가 `WARNING`·`CRITICAL`이 될 때만 Alarm. 실제 재가동(`STOPPED → RUNNING`, 사이의 offline 허용) 때만 이전 상태 초기화. 기동 직후 첫 동기화와 가동 중 끊김 후 복귀는 초기화하지 않는다. 재가동 기준 이전 결과 제외. ack·해제·떨림 억제 없음.
+- 이유: Shared 4.4의 필수 대상(Warning, Critical)을 만족하는 최소 규칙이다. 재가동 뒤 같은 고장이 다시 드러나면 새 Alarm으로 보이게 한다. 초기화를 기준 시각 갱신과 같은 조건으로 두면 첫 Line Status가 PdM 결과보다 늦게 오거나 simulator가 잠깐 끊겼다 돌아올 때 정지·재가동 없이 같은 Alarm이 다시 나간다(spec 리뷰 4번). 떨림 억제는 PdM 평활화 책임이다.
 - 영향: `03-control.md` 4절
 
 ### D-22 Alarm Event 발행과 Payload
@@ -218,7 +218,7 @@
 - 영향: `06-dashboard.md` 2절, `AGREEMENTS.md` A-09
 
 ### D-34 Dashboard 5초 측정 방법
-- 결정: 측정 도구가 MQTT 수신 시각과 스냅숏 반영 시각을 자기 시계로 재고 브라우저 polling 간격 1.0초를 더한 최댓값이 5.0초 이하.
+- 결정: 측정 도구가 MQTT 수신 시각과 스냅숏 반영 시각을 자기 시계로 재고, 브라우저 polling 간격 1.0초, 측정 중 스냅숏 응답 시간 최댓값(0.5초 이하여야 함), 렌더링 예산 0.2초(사람 확인)를 더한 최댓값이 5.0초 이하.
 - 이유: `generated_at`과 Payload `timestamp`는 다른 호스트 시계라 빼면 시계 차가 섞인다. 브라우저의 실제 가져감은 자동화하지 않으므로(headless 브라우저 없음) polling 간격을 최악값으로 더한다. Component와 integration이 같은 방법을 쓰면 결과를 비교할 수 있다.
 - 영향: `08-verification.md` 4.1절, `AGREEMENTS.md` A-10
 

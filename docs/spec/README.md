@@ -35,7 +35,7 @@
 | `00-overview.md` | 목표, 완료 정의(C-01~C-10), 시연에서의 역할, 범위, 구현 순서(M1~M6) |
 | `01-core.md` | 저장소 구조, 스레드와 큐, StateStore, 설정, 시계, 로그, 수명 주기 |
 | `02-mqtt.md` | paho client, Topic, 입력 검증 규칙(6종), 발행 Payload 생성과 규칙, 재연결 |
-| `03-control.md` | LineTracker, 처리 순서, Interlock·명령·결과 확인, Alarm, 시나리오 S-01~S-12·L-01~L-07 |
+| `03-control.md` | LineTracker, 처리 순서, Interlock·명령·결과 확인, Alarm, 시나리오 S-01~S-12·L-01~L-11 |
 | `04-analysis.md` | 시간 결합, 상관분석 |
 | `05-storage.md` | DB 구성, 쓰기 작업, DB 스레드, DDL 전문, 조회 |
 | `06-dashboard.md` | endpoint, 스냅숏 형식, stale 규칙, 화면 칸과 브라우저 동작 |

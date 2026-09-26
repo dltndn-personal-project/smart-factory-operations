@@ -16,10 +16,10 @@ Python 프로세스 하나(MQTT·판단·DB·HTTP)와 정적 화면으로 만든
 | ID | 관찰할 수 있는 결과 | 확인 |
 |---|---|---|
 | C-01 | 입력 여섯 Topic의 Payload 파서가 `02-mqtt.md` 3절 규칙대로 받거나 거부하고, Conveyor Control·Alarm Event 생성 결과가 `AGREEMENTS.md` A-02·A-03과 같다 | 단위(자동) |
-| C-02 | `03-control.md`의 Interlock 시나리오 표(S-01~S-10)와 Alarm 시나리오 표(L-01~L-06)가 모두 기대대로다 | 단위(자동, 가짜 시계) |
+| C-02 | `03-control.md`의 Interlock 시나리오 표(S-01~S-12)와 Alarm 시나리오 표(L-01~L-11)가 모두 기대대로다 | 단위(자동, 가짜 시계) |
 | C-03 | `db/schema.sql`을 `timescale/timescaledb:2.30.1-pg17`의 initdb로 적용하면 테이블 8개(`schema_info` 포함)·view 1개·hypertable 1개가 생기고, 같은 파일을 한 번 더 실행해도 오류가 없다 | 연동(자동, Docker) |
 | C-04 | 실제 Mosquitto·DB와 연결한 앱에 각 Topic 메시지를 보내면 `05-storage.md` 2절 표대로 행이 생긴다. `sensor_chunk.fault_level`과 `inspection.health_index_at_time`이 `04-analysis.md` 1절 결합 규칙과 같다 | 연동(자동, Docker) |
-| C-05 | `CRITICAL` PdM Result를 broker에 발행한 뒤 1.0초 안에 `STOP`(`reason: INTERLOCK_CRITICAL`)이 broker에 나오고, 같은 결과의 Alarm Event가 그보다 먼저 나온다. 5회 반복의 최댓값으로 판정한다 | 연동(자동, Docker) |
+| C-05 | `CRITICAL` PdM Result를 broker에 발행한 뒤 1.0초 안에 `STOP`(`reason: INTERLOCK_CRITICAL`)이 broker에 나오고 같은 결과의 Alarm Event도 나온다. 5회 반복의 최댓값으로 판정한다. Alarm Event를 STOP보다 먼저 발행하는 것은 단위 테스트(L-07)의 발행 호출 순서로 확인한다(서로 다른 Topic의 수신 순서는 보장되지 않는다) | 연동(자동, Docker) |
 | C-06 | 가짜 Simulator가 Line Status `last_command`로 결과를 돌려주면 `control.result`가 채워지고 대기 중인 STOP이 끝난다 | 연동(자동, Docker) |
 | C-07 | 알려진 lag(13초)로 만든 합성 데이터에서 상관분석의 최대 |Pearson| lag가 13 ± 1초다. 표본 부족 조건에서 계수가 null이다 | 단위(자동) |
 | C-08 | Dashboard 갱신 지연(`08-verification.md` 4절 방법)의 최댓값이 5.0초 이하다 | 연동(자동, Docker) |

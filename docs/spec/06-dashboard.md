@@ -80,10 +80,10 @@
 | `line` | Line Status를 받은 적이 없으면 `{"status":"NONE"}`만. `online: false`를 마지막으로 받았으면 `status: "OFFLINE"`이고 나머지는 마지막 online 값(없으면 null). 그 밖에는 `age_s > dashboard.line_stale_s`(3초)이면 `STALE`, 아니면 `LIVE` |
 | `pdm` | 라인 센서의 마지막 PdM Result. 없으면 `{"status":"NONE"}`. `age_s ≤ pdm.stale_s`(2초)이면 `LIVE`, 넘으면 `STALE`(4절). `before_restart`는 `reference_time`이 있고 `timestamp ≤ reference_time`이면 true. `history`는 최근 `pdm.history_s`(120초) 결과(최대 240개), 오래된 것부터 |
 | `spectrum` | 없으면 `{"status":"NONE"}`. `age_s ≤ dashboard.spectrum_stale_s`(3초)이면 `LIVE`, 아니면 `STALE`. `panels`는 02 3.7절 결과, 값은 소수 4자리 |
-| `vibration` | 링 버퍼가 비면 `{"status":"NONE"}`. 링의 chunk를 `seq` 순으로 이어 붙인 축별 배열을 `dashboard.vibration_buckets`(500)개 구간으로 같게 나눠 구간별 최솟값·최댓값(소수 4자리). 샘플이 구간 수보다 적으면 구간 수 = 샘플 수. `window_s` = 샘플 수 / `sample_rate_hz`. 마지막 chunk `age_s > dashboard.vibration_stale_s`(1초)이면 `STALE`. `rpm`·`temperature`·`timestamp`는 마지막 chunk 값 |
+| `vibration` | 링 버퍼가 비면 `{"status":"NONE"}`. 링의 chunk(모두 같은 `sample_rate_hz`·배열 길이, 03 2절)를 `seq` 순으로 이어 붙인 축별 배열을 `dashboard.vibration_buckets`(500)개 구간으로 같게 나눠 구간별 최솟값·최댓값(소수 4자리). 샘플이 구간 수보다 적으면 구간 수 = 샘플 수. `window_s` = 샘플 수 / `sample_rate_hz`. 마지막 chunk `age_s > dashboard.vibration_stale_s`(1초)이면 `STALE`. `rpm`·`temperature`·`timestamp`는 마지막 chunk 값 |
 | `interlock` | `03-control.md` 3.1절 상태. `judged`·`pending_stop`·`last_trigger_timestamp`는 없으면 null |
 | `production`, `inspections`, `alarms`, `controls` | DB 요약(05 5절)의 마지막 결과. 아직 없거나 DB가 끊겼으면 `production`은 null, 목록은 빈 배열. 최신이 먼저 |
-| `correlation` | 04 2.3절 결과. 아직 없으면 null |
+| `correlation` | 04 2.3절 결과. 아직 없으면 null. `db_ok`가 false이거나 `computed_at` 뒤 `3 × correlation.period_s`(30초)가 지났으면 `stale: true`를 붙이고 화면은 "마지막 계산 · N초 전"으로 표시한다. DB가 다시 연결되면 다음 주기(최대 10초)에 새로 계산한다 |
 
 - 진동 솎기는 표시용 downsampling이며 특징(RMS 등) 계산이 아니다(Shared 17절 경계).
 - 스냅숏 크기는 약 60~80 KB다(진동 3 × 1000값, 스펙트럼 최대 6 × 501값).
@@ -122,6 +122,7 @@
 - `START`: `interlock.judged.state == "CRITICAL"`이면 `confirm()`으로 "현재 설비 판정이 CRITICAL입니다. 재가동하면 PdM이 다시 CRITICAL을 내는 즉시 Interlock이 라인을 멈춥니다. simulator에서 Fault Level을 먼저 낮추었는지 확인하세요." 확인 뒤에만 보낸다. `STOP`은 확인 없이 보낸다. 응답 오류는 버튼 옆에 코드로 표시한다.
 - 썸네일 `<img loading="lazy">`가 실패하면 "이미지 없음".
 - 색은 CSS 변수로 두고 밝은·어두운 테마를 `prefers-color-scheme`으로 따른다.
+- `?debug=1`이면 상단 막대에 마지막 스냅숏 응답 시간과 렌더링 시간(`performance.now()`로 응답 처리 시작부터 그리기 끝까지, ms)을 표시한다(`08-verification.md` 4.1절 `R`).
 
 `plot.js`: `drawLines(canvas, {x: {start, step, unit}, series: [{values, label, colorVar}], y: {min, max, label}, hlines})`, `drawBands(canvas, {min, max, colorVar, window_s})`, `drawBars(canvas, …)`. 축 눈금·범례만 그린다. 확대·툴팁은 없다.
 

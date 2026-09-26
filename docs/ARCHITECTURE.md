@@ -293,6 +293,8 @@ Topic `factory/control/conveyor`, QoS 1, **retain false**(simulator는 retained 
 
 #### Alarm Event [결정, Shared 등록 예정]
 
+> spec 단계에서 Payload를 확정하면서 아래 초안을 바꿨다(`from_state`·`to_state` → `previous_state`, `severity`). 구현 기준은 `docs/spec/AGREEMENTS.md` A-02다. 아래는 초안 기록으로만 남긴다.
+
 Topic `factory/alarm/event`, QoS 1, retain false로 **발행한다**. 현재 소비자는 없지만, integration이 DB에 접근하지 않고 Alarm 흐름(ARCH 7절 Monitoring / Alarm)을 E2E로 확인할 수 있고 발행 비용이 작다. Payload 초안:
 
 ```json

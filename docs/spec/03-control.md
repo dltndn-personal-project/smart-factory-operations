@@ -13,7 +13,8 @@
 | `latest` | 마지막으로 받은 `LineStatus`(online true)와 수신 시각. `online: false`를 받아도 지우지 않는다(화면에 마지막 값 표시) |
 | `online` | null(미수신) \| true \| false |
 | `reference_time` | **재가동 기준 시각**. null 또는 Payload timestamp(Simulator 시계). 1.2절 |
-| `fault_changes` | `(timestamp, fault_level)` 변화점 목록. 최근 600초만 유지(04 1절 결합용) |
+| `fault_changes` | `(timestamp, fault_level)` 변화점 목록(04 1절 결합용). `timestamp`가 최근 600초 안인 변화점과, 그보다 오래된 것 중 **가장 최근 변화점 하나**를 유지한다(값이 10분 넘게 그대로여도 현재 구간의 시작점이 남는다) |
+| `last_conveyor` | 마지막으로 받은 online Line Status의 `conveyor`. `online: false`를 받아도 바꾸지 않는다. 재가동 이벤트 판정용 |
 | `line_sensor_id` | `latest.sensor_id`, 없으면 설정 `line.sensor_id` |
 
 ### 1.2 갱신 규칙
@@ -23,7 +24,9 @@
 2. 이전 `online`이 false가 아니었으면 `line_status_change` 행을 쓴다(05 2절, `timestamp` null).
 
 `online: true` 수신(`ls`):
-1. `new = ls.conveyor`. `new == RUNNING`이고 `line_state != RUNNING`(즉 `UNKNOWN` 또는 `STOPPED`에서 바뀜)이면 `reference_time = ls.timestamp`로 두고 **재가동 이벤트**를 낸다(4절 Alarm 초기화). 기동 뒤 처음 받은 Line Status가 `RUNNING`인 경우도 여기에 해당한다.
+1. `new = ls.conveyor`. `new == RUNNING`이고 `line_state != RUNNING`(즉 `UNKNOWN` 또는 `STOPPED`에서 바뀜)이면 `reference_time = ls.timestamp`로 둔다. 기동 뒤 처음 받은 Line Status가 `RUNNING`인 경우와 `online: false` 뒤 `RUNNING`도 여기에 해당한다.
+   - 이 중 `last_conveyor == STOPPED`이고 `new == RUNNING`인 경우만 **재가동 이벤트**를 낸다(4절 Alarm 초기화). 사이에 `online: false`가 끼어도 된다(정지 상태에서 simulator 재기동). 기동 직후 첫 동기화(`last_conveyor` null)와 가동 중의 끊김 후 복귀(`RUNNING → offline → RUNNING`)는 재가동 이벤트가 아니다. 실제 정지·재가동이 없었는데 Alarm이 다시 나가지 않게 하기 위해서다.
+   - 그다음 `last_conveyor = new`.
 2. `line_state = new`, `online = true`, `latest = ls`.
 3. 이전에 기록한 값과 `online`, `conveyor`, `fault_level`, `production_active` 중 하나라도 다르거나 첫 수신이면 `line_status_change` 행을 쓴다. 1초 주기 메시지는 쓰지 않는다.
 4. 마지막 변화점과 `fault_level`이 다르거나 변화점이 없으면 `(ls.timestamp, ls.fault_level)`을 추가한다.
@@ -38,16 +41,18 @@
 
 | 입력 | 처리 순서 |
 |---|---|
-| Sensor Vibration | `fault_level` 결합(04 1.1절) → DB 큐에 센서 행 → `sensor_id == line_sensor_id`이면 진동 링 버퍼에 추가 |
+| Sensor Vibration | `fault_level` 결합(04 1.1절) → DB 큐에 센서 행 → `sensor_id == line_sensor_id`이면 진동 링 버퍼에 추가. 링의 마지막 chunk와 `sample_rate_hz`나 배열 길이가 다르면, 또는 `seq`가 직전 값 + 1이 아니면 링을 비우고 이 chunk부터 다시 채운다 |
 | Line Status | 1.2절 |
 | Product Created | DB 큐에 `product` 행 |
 | Vision Result | `health_index_at_time` 결합(04 1.2절) → DB 큐에 `inspection` 행 |
-| PdM Result | `pdm_latest`·`pdm_history` 갱신 → DB 큐에 `equipment_state` 행 → **판정 대상**이면 Alarm 평가(4절) → Interlock 평가(3.2절) |
+| PdM Result | `pdm_latest`·`pdm_history` 갱신 → DB 큐에 `equipment_state` 행 → **Alarm 대상**이면 Alarm 평가(4절) → **판정 대상**이면 Interlock 평가(3.2절) |
 | PdM Spectrum | `sensor_id == line_sensor_id`이면 `spectrum_latest` 교체. 아니면 버림 |
 | 운영자 명령 | 3.3절 |
 | tick(0.1초마다) | 대기 중 STOP 시간 초과 처리(3.2절) |
 
-**판정 대상** PdM Result: `sensor_id == line_sensor_id`이고, `reference_time`이 null이거나 `timestamp > reference_time`인 결과. 라인 센서가 아닌 센서의 결과는 기록·Alarm만 하고 Interlock에는 쓰지 않는다(현재 시스템은 센서 하나).
+**판정 대상** PdM Result(Interlock): `sensor_id == line_sensor_id`이고, `reference_time`이 null이거나 `timestamp > reference_time`인 결과.
+
+**Alarm 대상** PdM Result: 라인 센서는 판정 대상과 같은 조건, 라인 센서가 아닌 센서는 모든 결과. 라인 센서가 아닌 센서의 결과는 기록·Alarm만 하고 Interlock에는 쓰지 않는다(현재 시스템은 센서 하나).
 
 ## 3. Interlock과 명령
 
@@ -69,7 +74,7 @@
    - `line_state`가 `RUNNING` 또는 `UNKNOWN`(Line Status 미수신·`online: false`. 알 수 없을 때 보내는 것은 안전 쪽 선택이다. 이미 정지면 simulator가 `NO_CHANGE`)
    - `pending`이 null
    - `last_trigger_ts`가 null이거나 `judged.timestamp > last_trigger_ts` (**같은 PdM 결과로 STOP을 두 번 내지 않는다**)
-3. 발행: `build_conveyor("STOP", uuid4, now)`, `reason: "INTERLOCK_CRITICAL"`. `publish`가 False(MQTT 끊김)이면 아무것도 바꾸지 않고 `interlock_publish_skipped` WARNING 로그. 다음 평가에서 다시 판단한다.
+3. 발행: `build_conveyor("STOP", uuid4, "INTERLOCK_CRITICAL", now)`. `publish`가 False(MQTT 끊김)이면 아무것도 바꾸지 않고 `interlock_publish_skipped` WARNING 로그. 다음 평가에서 다시 판단한다.
 4. 발행 성공: `pending = (command_id, mono())`, `last_trigger_ts = judged.timestamp`, DB 큐에 `control` INSERT(`origin: operations`, `trigger_sensor_id`, `trigger_timestamp = judged.timestamp`), `command_published` INFO 로그.
 
 결과(3.4절)에 따른 `pending` 종료:
@@ -102,7 +107,7 @@
 
 - 값: Equipment State 심각도 `NORMAL` 0 < `CAUTION` 1 < `WARNING` 2 < `CRITICAL` 3. Operations는 Health Index로 상태를 다시 계산하지 않고 PdM의 `state`를 그대로 쓴다(Shared 17절).
 - `AlarmManager`는 `sensor_id`별로 이전 상태 `prev`(처음 null, 심각도 −1로 본다)를 기억한다.
-- 판정 대상 PdM Result `r`마다(라인 센서가 아닌 센서는 모든 결과):
+- Alarm 대상 PdM Result `r`(2절)마다:
   1. `r.state`가 `WARNING` 또는 `CRITICAL`이고 심각도가 `prev`보다 크면 Alarm을 만든다: `alarm_id = uuid4`, `timestamp = r.timestamp`, `raised_at = now`, `severity = r.state`, `previous_state = prev`, `health_index`, `anomaly_score`.
   2. `prev = r.state`.
 - Alarm 처리: DB 큐에 `alarm` INSERT → Alarm Event 발행(02 4.2절, 실패해도 DB 기록은 유지) → `alarm_raised` INFO 로그.
@@ -145,3 +150,7 @@
 | L-05 | CRITICAL → 재가동 이벤트 → WARNING | (CRITICAL, null), (WARNING, null) |
 | L-06 | 재가동 기준 시각 이전 `timestamp`의 CRITICAL | Alarm 없음, `equipment_state` 기록은 있음 |
 | L-07 | LS R@t0, 첫 결과 CRITICAL@t0+1 | 발행기 기록 순서가 Alarm Event → STOP |
+| L-08 | (LS 없음) WARNING@t0 → LS R@t0+0.2 → WARNING@t0+0.5 | (WARNING, null) 1건만(첫 동기화는 재가동 이벤트가 아님) |
+| L-09 | LS R@t0, WARNING@t0+1 → LS offline → LS R@t0+3 → WARNING@t0+4 | (WARNING, null) 1건만(`RUNNING → offline → RUNNING`은 재가동 이벤트가 아님) |
+| L-10 | LS R@t0, CRITICAL@t0+1 → LS S → LS offline → LS R@t0+30 → WARNING@t0+31.1 | (CRITICAL, null), (WARNING, null) (정지 상태에서 simulator 재기동은 재가동 이벤트) |
+| L-11 | 라인 센서 `motor01` WARNING, 다른 센서 `motor02` WARNING | 센서마다 1건씩 2건, STOP 없음 |

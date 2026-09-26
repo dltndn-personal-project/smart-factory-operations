@@ -70,7 +70,7 @@ CMD ["python", "-m", "factory_operations", "serve"]
 |---|---|
 | `mosquitto` | `eclipse-mosquitto:2.1.2-alpine`, `command: ["mosquitto","-c","/mosquitto-no-auth.conf"]`, `ports: ["127.0.0.1:${FOPS_MQTT_PORT:-1883}:1883"]` |
 | `db` | `timescale/timescaledb:2.30.1-pg17`, 환경 `POSTGRES_USER=factory`, `POSTGRES_PASSWORD=factory`, `POSTGRES_DB=factory`, `volumes: ["./db/schema.sql:/docker-entrypoint-initdb.d/100_factory_operations.sql:ro"]`(DB 데이터는 익명 볼륨), `ports: ["127.0.0.1:${FOPS_DB_PORT:-5432}:5432"]`, healthcheck `pg_isready -h 127.0.0.1 -U factory -d factory`(interval 2s, retries 30. `-h 127.0.0.1`은 initdb 중 소켓만 여는 임시 서버를 준비 완료로 오인하지 않게 한다) |
-| `image-seed` | `eclipse-mosquitto:2.1.2-alpine` 이미지로 한 번 실행: `sh -c "mkdir -p /data/products /data/gradcam && cp /seed/*.jpg /data/products/"`, `volumes: ["image-storage:/data", "./tests/fixtures/images:/seed:ro"]`. 개발용 볼륨에 예시 이미지를 넣는다(Image Storage 자체를 bind mount하지 않는다) |
+| `image-seed` | `eclipse-mosquitto:2.1.2-alpine` 이미지로 한 번 실행: `sh -c 'mkdir -p /data/products /data/gradcam; i=1; while [ $i -le 300 ]; do k=$(( (i - 1) % 8 + 1 )); cp /seed/P-0000000$k.jpg $(printf /data/products/P-%08d.jpg $i); i=$((i + 1)); done'`(compose 파일에서는 `$`를 `$$`로 쓴다). 예시 이미지 8장을 `P-00000001.jpg`~`P-00000300.jpg` 300개 이름으로 복사한다(fake_feed 2초 간격으로 10분 분량), `volumes: ["image-storage:/data", "./tests/fixtures/images:/seed:ro"]`. 개발용 볼륨에 예시 이미지를 넣는다(Image Storage 자체를 bind mount하지 않는다) |
 | `factory-operations` | `build: .`, 환경 `MQTT_URL=mqtt://mosquitto:1883`, `DATABASE_URL=postgresql://factory:factory@db:5432/factory`, `IMAGE_ROOT=/data`, `ports: ["127.0.0.1:${FOPS_HTTP_PORT:-8080}:8080"]`, `volumes: ["image-storage:/data:ro"]`, `depends_on`: `db`(service_healthy), `mosquitto`(service_started), `image-seed`(service_completed_successfully) |
 
 `volumes: {image-storage: {}}`. simulator 단독 compose와 호스트 포트 1883이 겹치므로 둘을 동시에 띄우지 않는다(동시에 필요하면 `FOPS_MQTT_PORT`를 바꾼다). 완전 초기화는 `docker compose down -v`.
@@ -79,9 +79,9 @@ CMD ["python", "-m", "factory_operations", "serve"]
 
 다른 Component 없이 화면과 흐름을 보기 위한 개발·사람 확인용 도구다. 테스트는 이 스크립트에 의존하지 않는다.
 
-`.venv/bin/python scripts/fake_feed.py [--mqtt mqtt://127.0.0.1:1883] [--prefix factory] [--seed 1] [--speed 1.0]`:
+`.venv/bin/python scripts/fake_feed.py [--mqtt mqtt://127.0.0.1:1883] [--prefix factory] [--seed 1] [--speed 1.0] [--start-id 1]`:
 
-- **Simulator 흉내**: Line Status(retain, 1초마다와 변화 즉시), Sensor Vibration(0.1초마다, `motor01`, 3축 1000샘플, 30 Hz 사인 + Fault Level에 비례한 진폭·잡음, `STOPPED`면 `rpm 0.0`과 잡음만), Product Created(가동 중 2초마다, `products/P-0000000k.jpg`, k는 1~8 순환. `product_id`는 1부터 증가하는 번호를 쓰되 이미지 경로만 순환). Conveyor Control을 구독해 `START`/`STOP`을 적용하고 `last_command`(`source: mqtt`, `APPLIED`/`NO_CHANGE`/`REJECTED`)를 Line Status로 돌려준다. retained 명령은 `REJECTED`(`retained_ignored`).
+- **Simulator 흉내**: Line Status(retain, 1초마다와 변화 즉시), Sensor Vibration(0.1초마다, `motor01`, 3축 1000샘플, 30 Hz 사인 + Fault Level에 비례한 진폭·잡음, `STOPPED`면 `rpm 0.0`과 잡음만), Product Created(가동 중 2초마다, `product_id`는 `--start-id`(기본 1)부터 1씩 증가, `image_path`는 Shared 관례대로 `products/<product_id>.jpg`). 300번을 넘으면 파일이 없어 화면에 "이미지 없음"이 나온다(개발용 한계). 다시 처음부터 보려면 `docker compose down -v` 뒤 다시 띄운다. Conveyor Control을 구독해 `START`/`STOP`을 적용하고 `last_command`(`source: mqtt`, `APPLIED`/`NO_CHANGE`/`REJECTED`)를 Line Status로 돌려준다. retained 명령은 `REJECTED`(`retained_ignored`).
 - **PdM 흉내**: 가동 중 0.5초마다 PdM Result(`timestamp` = 마지막 chunk 끝, `window_start` = 1초 전, `health_index = round(100·(1−(f/10)^1.3))` ± 2 잡음, `state`는 Shared 4.2 구간, `anomaly_score = 1 − HI/100`), 1초마다 PdM Spectrum(`freq_step_hz: 1.0`, `spectrum_x/y/z`와 `envelope_y` 501값, 30·60·90 Hz와 107.5 Hz에 Fault Level 비례 봉우리). 정지 중에는 둘 다 내지 않는다.
 - **Vision 흉내**: Product Created마다 0.2초 뒤 Vision Result(pass-through 형식, `judgement_source: "PASS_THROUGH"`). 불량 확률은 투입 시점(13초 전) Fault Level `f`에 대해 `0.02 + 0.4·(f/10)^1.3`, 유형은 세 가지 균등.
 - **Fault Level 시나리오**(초, `--speed`로 배속): 0~40 → 0, 40~70 → 3, 70~160 → 6, 160~ → 9. `START`를 받으면 Fault Level을 0으로 돌리고 시나리오를 처음부터 다시 한다. Ctrl-C로 끝낸다(Line Status offline을 retain 발행).

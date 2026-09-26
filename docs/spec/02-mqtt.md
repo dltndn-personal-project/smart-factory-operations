@@ -137,7 +137,7 @@ Shared는 `defect_type`·`confidence`·`bbox`·`gradcam_path`의 **키**를 필�
 
 순수 함수. 직렬화는 `json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()`.
 
-- `build_conveyor(command, command_id, now) -> dict`: `{"schema_version": 1, "command": command, "command_id": command_id, "timestamp": iso_ms(now), "reason": reason}`. `command_id`는 `str(uuid.uuid4())`(36자). `timestamp`는 발행 직전 `clock.wall()`. `reason` 값은 `03-control.md` 3·4절(`INTERLOCK_CRITICAL`, `OPERATOR_START`, `OPERATOR_STOP`).
+- `build_conveyor(command, command_id, reason, now) -> dict`: `{"schema_version": 1, "command": command, "command_id": command_id, "timestamp": iso_ms(now), "reason": reason}`. `command_id`는 `str(uuid.uuid4())`(36자). `timestamp`는 발행 직전 `clock.wall()`. `reason`은 호출자가 넘긴다: Interlock STOP `INTERLOCK_CRITICAL`(03 3.2절), 운영자 `OPERATOR_START`·`OPERATOR_STOP`(03 3.3절).
 - `build_alarm(alarm) -> dict`: `AGREEMENTS.md` A-02 형식 그대로.
 
 ### 4.2 발행 규칙

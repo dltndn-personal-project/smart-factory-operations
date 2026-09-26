@@ -23,13 +23,14 @@
 | `smoke` | `venv` 후 `.venv/bin/python scripts/smoke.py` |
 
 - `pyproject.toml` `[tool.pytest.ini_options]`: `pythonpath = ["src"]`, `testpaths = ["tests"]`, `markers = ["docker: Docker로 Mosquitto·TimescaleDB를 띄우는 연동 테스트"]`.
-- 공용 fixture(`tests/conftest.py`): `FakeClock`, `FakePublisher`(`publish` 호출을 `(topic, payload, qos, retain)` 목록으로, `connected` 조절), `FakeDbSink`(DB 큐 작업 목록), `tmp_image_root`(`products/P-00000001.jpg` 복사본), `payload_examples`(`tests/fixtures/payloads/*.json`: Shared INTERFACES 예시 5개, PdM 아키텍처 6.2절 예시, 스펙트럼 예시 3종).
+- 공용 fixture(`tests/conftest.py`): `FakeClock`, `FakePublisher`(`publish` 호출을 `(topic, payload, qos, retain)` 목록으로, `connected` 조절), `FakeDbSink`(DB 큐 작업 목록), `tmp_image_root`(`products/P-00000001.jpg` 복사본), `payload_examples`(`tests/fixtures/payloads/*.json`: Shared INTERFACES 예시 5개, PdM 아키텍처 6.2절 예시, 스펙트럼 예시 3종). Sensor Vibration 예시는 원문 배열에 설명 문자열(`"… 1000개"`)이 있어 그대로 쓸 수 없으므로, 원문의 스칼라 필드와 seed 고정 난수 축별 1000개(소수 4자리)로 만든 파일을 쓴다. 나머지 예시는 원문 그대로다.
 - Docker fixture(`tests/docker/conftest.py`, 모두 `@pytest.mark.docker` 테스트에서만):
   - `mqtt_broker`(session): `docker run -d --rm --name fops-test-mqtt-<hex8> -p 127.0.0.1::1883 eclipse-mosquitto:2.1.2-alpine mosquitto -c /mosquitto-no-auth.conf`, `docker port`로 포트를 읽고 TCP 연결이 될 때까지 최대 10초.
   - `timescale_db`(session): `docker run -d --rm --name fops-test-db-<hex8> -e POSTGRES_USER=factory -e POSTGRES_PASSWORD=factory -e POSTGRES_DB=factory -p 127.0.0.1::5432 -v <저장소>/db/schema.sql:/docker-entrypoint-initdb.d/100_factory_operations.sql:ro timescale/timescaledb:2.30.1-pg17`. psycopg 연결과 `schema_info` 버전 1 확인이 될 때까지 최대 60초.
   - `clean_db`(function): `TRUNCATE sensor_chunk, line_status_change, product, inspection, equipment_state, alarm, control RESTART IDENTITY`.
-  - `running_app`(function): 실제 조립(DB 스레드, 워커, paho client, uvicorn을 스레드에서 `127.0.0.1`의 빈 포트로)으로 앱을 띄우고 base URL을 준다. `IMAGE_ROOT`는 `tmp_image_root`. 끝나면 `01-core.md` 7절 종료 순서로 멈춘다.
-  - `harness`: 테스트용 paho client(발행·구독, 수신 메시지를 `(time.monotonic(), topic, payload)`로 기록).
+  - `running_app`(function): 실제 조립(DB 스레드, 워커, paho client, uvicorn을 스레드에서 `127.0.0.1`의 빈 포트로)으로 앱을 띄우고 `/readyz`가 200이 될 때까지(최대 15초) 기다린 뒤 base URL을 준다. `IMAGE_ROOT`는 `tmp_image_root`. 끝나면 `01-core.md` 7절 종료 순서로 멈춘다.
+  - `harness`: 테스트용 paho client(발행·구독, 수신 메시지를 `(time.monotonic(), topic, payload)`로 기록). 구독은 SUBACK을 받은 뒤 반환한다. QoS 1 발행은 `wait_for_publish()`로 PUBACK까지 기다린다.
+  - `wait_snapshot(pred, timeout)`: `/api/snapshot`을 0.1초 간격으로 불러 조건이 참이 될 때까지 기다린다. 선행 메시지의 처리를 확인한 뒤 다음 메시지를 보낼 때 쓴다(Topic이 다르면 도착 순서가 보장되지 않으므로). 예: Line Status를 보낸 뒤 `line.fault_level == 3`이고 `interlock.reference_time`이 그 timestamp인지, STOP 결과를 보낸 뒤 `interlock.pending_stop == null`인지.
   - 컨테이너는 id로만 지운다(`docker rm -f <id>`). 이름 패턴으로 지우지 않는다.
 
 ## 3. 영역별 테스트
@@ -52,7 +53,8 @@
 ### 3.3 판단 (`test_line.py`, `test_interlock.py`, `test_alarm.py`)
 
 - LineTracker: 1.2절 규칙. 기동 뒤 첫 `RUNNING`이 기준 시각을 잡음, `STOPPED → RUNNING`과 `offline → RUNNING`이 기준 시각을 새로 잡음, 1초 주기 메시지는 `line_status_change`를 만들지 않음, `fault_changes`는 값이 바뀔 때만 늘어남.
-- `03-control.md` 6절 시나리오 S-01~S-12, L-01~L-07 전부.
+- `fault_changes`: 가짜 시계로 Fault Level을 700초 동안 바꾸지 않아도 `fault_level_at(현재)`가 그 값이다(오래된 변화점 하나 보존).
+- `03-control.md` 6절 시나리오 S-01~S-12, L-01~L-11 전부.
 
 ### 3.4 분석 (`test_join.py`, `test_correlation.py`)
 
@@ -70,7 +72,7 @@
 
 - `test_schema.py`(C-03): 테이블 8개·view `defect_result`·hypertable `sensor_chunk`·`schema_info` 버전 1. `docker exec -i <db> psql -v ON_ERROR_STOP=1 -U factory -d factory < db/schema.sql`을 한 번 더 실행해 종료 코드 0.
 - `test_db_writer.py`: 2절 표의 작업마다 행 확인, 중복 무시, 센서 25개를 넣으면 2번 이상의 배치로 모두 기록. DB 컨테이너 `docker restart` 뒤 `db_ok`가 false가 되었다가 15초 안에 true로 돌아오고 이후 쓰기가 된다.
-- `test_app_flow.py`(C-04, C-06): `running_app`에 harness가 Line Status(retain, `RUNNING`, `fault_level 3`), 센서 chunk 20개(`seq` 연속), PdM Result 4개(`NORMAL`), Product Created·Vision Result 2쌍을 보낸다. 5초 안에: `sensor_chunk` 20행 `fault_level = 3`, `equipment_state` 4행, `product`·`inspection` 2행이고 `health_index_at_time`이 캡처 시각 이하 가장 최근 PdM 값, `line_status_change` 1행. 이어서 `CRITICAL` → harness가 받은 STOP의 `command_id`로 Line Status(`STOPPED`, `last_command` `APPLIED`)를 보내면 3초 안에 `control.result = 'APPLIED'`.
+- `test_app_flow.py`(C-04, C-06): `running_app`에 harness가 Line Status(retain, `RUNNING`, `fault_level 3`)를 보내고 `wait_snapshot`으로 반영을 확인한 뒤 센서 chunk 20개(`seq` 연속), PdM Result 4개(`NORMAL`), Product Created·Vision Result 2쌍을 보낸다. 5초 안에: `sensor_chunk` 20행 `fault_level = 3`, `equipment_state` 4행, `product`·`inspection` 2행이고 `health_index_at_time`이 캡처 시각 이하 가장 최근 PdM 값, `line_status_change` 1행. 이어서 `CRITICAL` → harness가 받은 STOP의 `command_id`로 Line Status(`STOPPED`, `last_command` `APPLIED`)를 보내면 3초 안에 `control.result = 'APPLIED'`.
 - `test_interlock_latency.py`(C-05): 4.2절.
 - `test_broker_restart.py`: Mosquitto 컨테이너 `docker restart` → 15초 안에 `/readyz` 200, 이후 보낸 PdM Result가 `equipment_state`에 기록.
 - `test_dashboard_latency.py`(C-08): 4.1절.
@@ -94,8 +96,12 @@
 **측정 방법**: 같은 broker를 구독하는 측정 도구가
 1. E를 받은 시각 `t_rx(E)`를 자기 `monotonic`으로 기록한다.
 2. `GET /api/snapshot`을 0.2초 간격으로 부르고, 응답을 받은 시각에 아래 반영 조건이 처음 참이 된 시각을 `t_seen(E)`로 둔다.
-3. `D(E) = t_seen(E) − t_rx(E) + P`. `P = 1.0`초는 브라우저 polling 간격(`app.js` `POLL_INTERVAL_MS`, 3.5절이 고정을 검사)이다. 브라우저가 반영된 스냅숏을 가져가기까지의 최악 대기를 더한 것이다. 브라우저 렌더링 시간은 넣지 않는다(M-02에서 사람이 확인).
-4. 판정: 모든 표본의 `max D ≤ 5.0`초. p50·p95·max를 출력한다.
+3. `D(E) = t_seen(E) − t_rx(E) + P + r_max + R`.
+   - `P = 1.0`초: 브라우저 polling 간격(`app.js` `POLL_INTERVAL_MS`, 3.5절이 고정을 검사). 반영된 스냅숏이 생긴 뒤 브라우저가 다음 요청을 시작하기까지의 최악 대기다.
+   - `r_max`: 측정 중 잰 `/api/snapshot` 응답 시간(요청 시작 → 응답 끝)의 최댓값. 브라우저 요청이 끝나기까지의 시간이다. 판정 조건에 `r_max ≤ 0.5`초를 함께 둔다. 이 조건이 참이면 브라우저 요청이 1초 간격 안에 끝나므로 "이전 요청이 진행 중이면 건너뜀"(`06-dashboard.md` 5절)이 일어나지 않는다.
+   - `R = 0.2`초: 브라우저 렌더링 예산. 자동으로 재지 않고(headless 브라우저 없음, D-34) `?debug=1` 화면의 마지막 렌더링 시간이 200 ms 미만인지 사람이 M-02에서 확인한다.
+   - 시작점 `t_rx`는 측정 도구의 수신 시각이라 broker가 메시지를 받은 시각보다 로컬 전달 지연(수 ms)만큼 늦다. Operations도 같은 broker에서 같은 시점에 받으므로 이 차이는 무시한다.
+4. 판정: 모든 표본의 `max D ≤ 5.0`초이고 `r_max ≤ 0.5`초. p50·p95·max를 출력한다.
 
 | 이벤트 | 반영 조건 | 경로 |
 |---|---|---|
@@ -107,7 +113,7 @@
 | Alarm Event | `alarms`에 `E.alarm_id` | DB 요약 |
 | 명령 결과(Line Status `last_command`) | `controls`에 같은 `command_id`이고 `result`가 null이 아님 | DB 요약 |
 
-예상 최악값: DB 요약 경로 = 워커(0.1초 이하) + DB 쓰기 + 요약 주기(2.0초) + 측정 간격(0.2초) → `t_seen − t_rx` 약 2.4초, `D` 약 3.4초.
+예상 최악값: DB 요약 경로 = 워커(0.1초 이하) + DB 쓰기 + 요약 주기(2.0초) + 측정 간격(0.2초) → `t_seen − t_rx` 약 2.4초, `D` 약 2.4 + 1.0 + 0.1 + 0.2 = 3.7초.
 
 **Component 테스트**(`test_dashboard_latency.py`): `running_app`에 60초 동안 Line Status 변경 5초마다(12개), 센서 0.1초마다, PdM Result 0.5초마다, 스펙트럼 1초마다, Product·Vision 2초마다(30개), `CRITICAL` 1회(Alarm·STOP)와 명령 결과 1회를 보내고 위 방법으로 모든 표본을 잰다. `max D ≤ 5.0`.
 
@@ -115,7 +121,7 @@
 
 ### 4.2 Interlock 지연 (C-05, 이 Component의 목표)
 
-- `test_interlock_latency.py`: 5회 반복. 매회 harness가 Line Status `STOPPED` → `RUNNING`(새 timestamp, 재가동 기준 시각)을 보내고, 그보다 나중 `timestamp`의 PdM `CRITICAL`을 발행한다. 발행 직전 `monotonic`부터 harness가 STOP을 받은 시각까지 ≤ 1.0초. 같은 회차의 Alarm Event를 STOP보다 먼저 받는다. STOP을 받으면 `APPLIED`·`STOPPED`로 응답한다.
+- `test_interlock_latency.py`: 5회 반복. 매회 harness가 Line Status `STOPPED` → `RUNNING`(새 timestamp, 재가동 기준 시각)을 보내고, 그보다 나중 `timestamp`의 PdM `CRITICAL`을 발행한다. 발행 직전 `monotonic`부터 harness가 STOP을 받은 시각까지 ≤ 1.0초. 같은 회차의 Alarm Event도 받는다(서로 다른 Topic이라 수신 순서는 검사하지 않는다. 발행 순서는 단위 테스트 L-07). STOP을 받으면 `APPLIED`·`STOPPED`로 응답하고 `wait_snapshot`으로 `pending_stop == null`과 `line_state == STOPPED`를 확인한 뒤 다음 회차로 간다. `RUNNING`을 보낸 뒤에도 `reference_time`이 새 값인지 확인하고 PdM을 보낸다.
 - 측정은 broker 왕복(발행 → Operations → broker → harness)을 포함하므로 실제 처리 시간보다 크다.
 
 ## 5. verify 명령과 추가 시점
@@ -139,7 +145,7 @@
 | ID | 확인 | 통과 기준 |
 |---|---|---|
 | M-01 | 첫 화면 | 5초 안에 모든 칸이 보이고 콘솔 오류가 없다. 개발자 도구 Network에 외부 도메인 요청이 없다 |
-| M-02 | 갱신 | 상단 "N초 전 갱신"이 0~1초를 오간다. 진동·스펙트럼·PdM 추세가 매초 움직이고 화면이 깜빡이거나 스크롤이 튀지 않는다 |
+| M-02 | 갱신 | 상단 "N초 전 갱신"이 0~1초를 오간다. 진동·스펙트럼·PdM 추세가 매초 움직이고 화면이 깜빡이거나 스크롤이 튀지 않는다. `http://localhost:8080/?debug=1`의 마지막 렌더링 시간이 1분 동안 200 ms 미만이다(4.1절 `R`) |
 | M-03 | 라인 | Current Fault Level이 시나리오대로 0 → 3 → 6 → 9로 바뀌고 "평가용" 표기가 보인다. RUNNING/STOPPED 색이 구별된다 |
 | M-04 | 설비 상태 | NORMAL → CAUTION → WARNING 배지 색과 HI·Anomaly Score 값이 바뀌고, 추세 그래프에 경계선 80/60/40이 보인다. WARNING 진입 때 Alarm History에 1건 |
 | M-05 | Interlock | Fault Level 9 뒤 2초 안에 CRITICAL Alarm, Conveyor STOPPED, Control History에 `INTERLOCK_CRITICAL`·`APPLIED`. 2초 뒤 PdM 칸이 회색 "마지막 판정 · N초 전"과 "라인 정지 중" 문구 |

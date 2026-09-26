@@ -61,7 +61,7 @@ factory-simulator에 바라는 변경은 없다(조율 C-00, C-15).
 | Topic | `factory/alarm/event` |
 | 생산자 / 소비자 | factory-operations / Runtime 소비자 없음. integration이 E2E 검증에서 관찰한다 |
 | QoS / retain | 1 / false |
-| 발행 조건 | 같은 `sensor_id`의 이전 상태보다 심각도가 높은 `WARNING`·`CRITICAL` PdM Result(첫 결과 포함). 심각도 `NORMAL` < `CAUTION` < `WARNING` < `CRITICAL`. `CAUTION` 진입·회복은 발행하지 않는다. 라인 재가동(Line Status `conveyor`가 `RUNNING`으로 바뀜)을 보면 라인 센서의 이전 상태를 비운다. 재가동 전 윈도우의 결과는 쓰지 않는다 |
+| 발행 조건 | 같은 `sensor_id`의 이전 상태보다 심각도가 높은 `WARNING`·`CRITICAL` PdM Result(첫 결과 포함). 심각도 `NORMAL` < `CAUTION` < `WARNING` < `CRITICAL`. `CAUTION` 진입·회복은 발행하지 않는다. 라인 재가동(Line Status `conveyor`가 `STOPPED`에서 `RUNNING`으로 바뀜. 사이의 `online: false` 허용)을 보면 라인 센서의 이전 상태를 비운다. 재가동 전 윈도우의 결과는 쓰지 않는다 |
 | 빈도 | 상태가 올라갈 때 한 번. 같은 상태가 이어지면 다시 보내지 않는다. 떨림 억제·확인(ack)·해제 이벤트 없음 |
 
 ```json
@@ -91,7 +91,7 @@ factory-simulator에 바라는 변경은 없다(조율 C-00, C-15).
 | `anomaly_score` | 예 | number | 원인 PdM Result의 값 |
 
 - 발행 전제: Alarm을 DB `alarm` 테이블 쓰기 대기열에 넣은 뒤 발행한다. DB 기록 완료를 기다리지 않는다. MQTT가 끊겨 있으면 발행하지 않는다(DB 기록은 한다).
-- 순서: 같은 PdM Result로 Interlock STOP도 나가면 Alarm Event를 먼저 발행한다(같은 client, QoS 1).
+- 순서: 같은 PdM Result로 Interlock STOP도 나가면 Alarm Event를 먼저 **발행**한다. Topic이 달라 소비자의 **수신** 순서는 보장하지 않는다(Shared INTERFACES).
 - 중복·재전송: 없다(Shared 12절). 소비자는 `alarm_id`로 구분한다.
 - 오류: 오류 이벤트는 없다. 발행 실패는 Operations 로그로만 남는다.
 - Ground Truth: `fault_level` 등 Ground Truth 필드를 싣지 않는다.
@@ -262,7 +262,7 @@ services:
 
 **결정**
 - 관찰 지점: `GET http://<operations>:8080/api/snapshot`(스냅숏 `schema_version` 1, `06-dashboard.md` 3절). `generated_at`(Operations 시각)과 항목별 원본 `timestamp`·식별자(`line.timestamp`, `pdm.timestamp`, `spectrum.timestamp`, `vibration.timestamp`, `inspections[].product_id`, `alarms[].alarm_id`, `controls[].command_id`·`result`)가 있다. 캐시하지 않는다.
-- 측정 방법: `08-verification.md` 4.1절. 측정 도구가 MQTT 수신 시각과 스냅숏 반영 시각을 **자기 시계**로 재고, 브라우저 polling 간격 1.0초를 더한 값의 최댓값이 5.0초 이하인지 본다. 서로 다른 호스트 시계를 비교하지 않는다.
+- 측정 방법: `08-verification.md` 4.1절. 측정 도구가 MQTT 수신 시각과 스냅숏 반영 시각을 **자기 시계**로 재고, 브라우저 polling 간격 1.0초·스냅숏 응답 시간 최댓값·렌더링 예산 0.2초를 더한 값의 최댓값이 5.0초 이하인지 본다(응답 시간 최댓값 0.5초 이하도 조건). 서로 다른 호스트 시계를 비교하지 않는다.
 - 브라우저 polling 간격은 1.0초로 고정한다(`app.js` `POLL_INTERVAL_MS`).
 - 이 필드 이름과 의미를 바꾸려면 스냅숏 `schema_version`을 올리고 이 항목을 고친다.
 
@@ -276,7 +276,7 @@ services:
 
 **결정** (integration E2E-3의 판정 근거)
 - 판정 대상 `CRITICAL` PdM Result(라인 센서, 재가동 기준 시각 이후)를 받으면 STOP을 보낸다. Component 테스트 기준으로 broker에서 PdM Result를 발행한 뒤 1.0초 안에 STOP이 broker에 나온다.
-- 같은 결과로 `WARNING`/`CRITICAL` 상태가 올라가면 Alarm Event가 STOP보다 먼저 나온다.
+- 같은 결과로 `WARNING`/`CRITICAL` 상태가 올라가면 Alarm Event도 나온다. Operations는 Alarm Event를 먼저 발행하지만 Topic이 달라 수신 순서로 판정하지 않는다.
 - STOP의 `reason`은 `INTERLOCK_CRITICAL`, `command_id`는 DB `control.command_id`와 같다. Line Status 결과(`APPLIED`/`NO_CHANGE`)를 보면 `control.result`에 기록한다.
 - Operations는 자동으로 `START`하지 않는다. E2E가 재가동을 확인하려면 simulator 로컬 HTTP(`POST /api/conveyor`, 조율 C-14 검증 보조) 또는 Operations `POST /api/conveyor {"command":"START"}`를 쓴다. 재가동 뒤 PdM이 여전히 `CRITICAL`이면 약 1~2초 뒤 다시 STOP이 나간다.
 - 제안: E2E-3 단계 2의 제한 시간은 "단계 1의 `CRITICAL` 수신 뒤 2초".
