@@ -23,7 +23,9 @@ steps:
     D-47로 정함
 - do: web/api.py(create_app, /healthz), app.py(lifespan 틀), __main__.py serve
   check: A5
-  done: false
+  done: true
+  note: create_app을 OPS-6 계획의 인자 순서(cfg, state, inbound_queue, clock, lifespan)로 미리
+    맞춤. uvicorn access_log=False를 01 7절에 적음
 - do: tests/conftest.py 공용 fixture와 payload 예시, tests/unit/test_config.py·test_clock.py·test_log.py
   check: A1
   done: false
@@ -32,5 +34,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 5: web/api.py(create_app, /healthz), app.py(lifespan 틀), __main__.py
-  serve'
+next_action: 'step 6: tests/conftest.py 공용 fixture와 payload 예시, tests/unit/test_config.py·test_clock.py·test_log.py'

@@ -94,7 +94,7 @@ factory-operations/
 
 ## 7. 수명 주기
 
-`python -m factory_operations serve`가 설정을 읽고 `uvicorn.run(app, host=http.host, port=http.port, log_config=None)`을 부른다. FastAPI lifespan이 다음 순서로 시작하고 반대 순서로 끝낸다.
+`python -m factory_operations serve`가 설정을 읽고 `uvicorn.run(app, host=http.host, port=http.port, log_config=None, access_log=False)`를 부른다. uvicorn 로그도 6절 JSON 형식으로 나오고, 요청마다의 access 로그는 쓰지 않는다(화면이 1초마다 요청하므로). FastAPI lifespan이 다음 순서로 시작하고 반대 순서로 끝낸다.
 
 1. 설정·로그 준비, `StateStore` 생성, 시작 로그(설정 요약, `GIT_COMMIT`).
 2. DB 스레드 시작. 연결 실패여도 기동은 계속한다(05 4절).
