@@ -35,7 +35,7 @@ steps:
   note: D-32에 → D-48로 대체 표시. AGREEMENTS 목록의 맞출 Component도 확정에 맞춰 갱신
 - do: make test, validate.py --remote
   check: A2, A5
-  done: false
+  done: true
 attempts: {}
 evidence: {}
-next_action: 'step 7: make test, validate.py --remote'
+next_action: agent.py verify 실행
