@@ -1,8 +1,30 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-3B
+phase: plan
+base_commit: 3a28e15e82054506150cc94d952957071c72da29
+started_at: '2026-09-26T19:20:47Z'
+steps:
+- do: 'store/jobs.py: DB 쓰기 작업 타입 9종(kind, 05 2절 값)'
+  check: A6
+  done: false
+- do: 'domain/interlock.py: 3.1절 상태, 3.2절 평가·결과별 pending 종료·시간 초과, 뷰'
+  check: A2
+  done: false
+- do: 'domain/alarm.py: 센서별 이전 상태, 심각도 비교, 재가동 초기화, Alarm 값 객체'
+  check: A3
+  done: false
+- do: 'domain/worker.py Processor: 2절 처리 순서, 3.3절 운영자 명령, 3.4절 결과 확인, tick, 진동 링,
+    카운터, Alarm Event → STOP 발행 순서'
+  check: A2, A3, A4, A5
+  done: false
+- do: test_interlock.py(S-01~S-12), test_alarm.py(L-01~L-11)
+  check: A2, A3
+  done: false
+- do: test_worker.py(명령 결과 확인, 처리 순서 표)
+  check: A4, A5
+  done: false
+- do: make test, 순수성 검사
+  check: A1, A6
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(store/jobs.py)부터 수행
