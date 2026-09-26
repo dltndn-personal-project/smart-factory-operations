@@ -13,7 +13,7 @@ steps:
   done: true
 - do: static/plot.js — drawLines, drawBands, drawBars(canvas 2D, 축 눈금·범례·가로선)
   check: node 없이 파일 존재, A3 test_static_served
-  done: false
+  done: true
 - do: static/app.js — 1초 polling(진행 중이면 건너뜀, 3초 AbortController), 칸마다 다시 그리기(스크롤 유지), 4절 stale 문구, START
     확인 창·오류 코드, 썸네일·원본 보기·이미지 없음, ?debug=1 렌더링 시간
   check: A2 test_poll_interval_constant, A4
@@ -23,4 +23,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 3 static/plot.js 작성
+next_action: step 4 static/app.js 작성
