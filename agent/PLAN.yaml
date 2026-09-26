@@ -166,7 +166,7 @@ tasks:
         text: Line Status online false(다른 필드 없음)를 받고, last_command.result가 틀리면 last_command만 null이 되며, Vision Result는 confidence·bbox·gradcam_path 키가 없어도 받는다 (3.3·3.5절)
         check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_line_offline_only tests/unit/test_payloads.py::test_bad_last_command_nulls_only_it tests/unit/test_payloads.py::test_vision_missing_optional_keys"}
       - id: A5
-        text: 스펙트럼 (a) spectrum_x/y/z + freq_step_hz → 패널 1개·계열 3개·x_step 1.0 Hz (b) + envelope_y → 패널 2개 (c) 간격 없음 → x_unit bin (d) 배열 없음 → no_series (e) 300 KB → too_large (3.7절)
+        text: 스펙트럼(cb6dc3c 확정본, D-48) (a) 확정 예시 → 원 스펙트럼 패널 3계열 1.0 Hz, (b) 포락선 패널 3계열, (c) freq_step_hz 없음 → missing_field, (d) 배열 없음 → missing_field:spectrum_x, (e) 300 KB → too_large (3.7절)
         check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_spectrum_single_panel tests/unit/test_payloads.py::test_spectrum_envelope_panel tests/unit/test_payloads.py::test_spectrum_bins_without_step tests/unit/test_payloads.py::test_spectrum_no_series tests/unit/test_payloads.py::test_spectrum_too_large"}
       - id: A6
         text: build_conveyor·build_alarm의 키 집합과 값이 A-03(Shared Conveyor Control 예시)·A-02 형식과 같고, timestamp가 CONVENTIONS 정규식에 맞으며 command_id가 UUID4다 (4.1절)

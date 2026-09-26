@@ -38,10 +38,10 @@
 | 사용처 | HTTP | MQTT | DB | compose 프로젝트·이름 |
 |---|---|---|---|---|
 | OPS-1 A5 | 18280 | (없음, `mqtt://127.0.0.1:1`) | (없음) | |
-| OPS-7A A7 | 18281 | (없음) | (없음) | |
+| OPS-7A A6 | 18281 | (없음) | (없음) | |
 | OPS-9B A4 | 18290 | 11990 | 15490 | `fops-ops9b` |
-| Docker 테스트(`make docker-test`) | 테스트가 고른 빈 포트 | 빈 포트 고정 | 빈 포트 고정 | 컨테이너 `fops-test-*-<hex8>` |
-| smoke(OPS-9A A1, verify) | Docker 임의 포트 | 임의 | 임의 | `fops-smoke-<hex8>` |
+| Docker 테스트(`make docker-test`) | 테스트가 고른 빈 포트 | 빈 포트 고정 | 빈 포트 고정 | 컨테이너 `factory-operations-test-{db,mqtt}-<hex8>` |
+| smoke(OPS-9A A1, verify) | Docker 임의 포트 | 임의 | 임의 | 컨테이너 `factory-operations-fops-smoke-<hex8>-<역할>`, network·volume `fops-smoke-<hex8>`·`fops-smoke-img-<hex8>` |
 | 개발·HUM-1 | 8080 | 1883 | 5432 | `factory-operations`(기본) |
 
 ## 3. OPS-7B broker 재연결과 지연 측정 (M3)

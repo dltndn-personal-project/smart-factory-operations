@@ -43,7 +43,7 @@ spec 00 6절의 OPS-9는 Dockerfile·smoke·개발용 compose·`fake_feed.py`(Si
 
 단계 개요:
 1. `Dockerfile`(07 3절 그대로), `.dockerignore`. smoke 이미지 태그는 `factory-operations:smoke-<commit 12자리>`다(spec 08 3.7절 1번). `docker build`가 되는지 먼저 본다(첫 빌드는 베이스 이미지·pip로 수 분, 인터넷 필요). → A2, A3
-2. `scripts/smoke.py`: 08 3.7절 1~7번. 컨테이너·network·volume은 `<hex8>` 접미사로 만들고 id·이름으로만 지운다. Mosquitto·DB·Operations 모두 `-p 127.0.0.1::<port>`(재시작 없음, 임의 포트). harness는 `.venv`의 paho, PdM 메시지는 `tests/fixtures/payloads/pdm.py`(파일 경로로 불러옴, D-39). 실패하면 Operations 로그 마지막 100줄과 종료 코드 1. → A1, A5
+2. `scripts/smoke.py`: 08 3.7절 1~7번. 컨테이너·network·volume은 `<hex8>` 접미사로 만들고 id·이름으로만 지운다. 컨테이너 이름은 Component 접두사를 붙인 `factory-operations-fops-smoke-<hex8>-<역할>`, network·volume은 `fops-smoke-<hex8>`·`fops-smoke-img-<hex8>`(spec 07 3절). Mosquitto·DB·Operations 모두 `-p 127.0.0.1::<port>`(재시작 없음, 임의 포트). harness는 `.venv`의 paho, PdM 메시지는 `tests/fixtures/payloads/pdm.py`(파일 경로로 불러옴, D-39). 실패하면 Operations 로그 마지막 100줄과 종료 코드 1. → A1, A5
 3. `Makefile`에 `smoke`. `make smoke`를 두 번 연속 실행해 정리가 되는지 본다. → A1, A4
 4. `agent/config.yaml`에 `smoke` 추가 → `validate.py --remote`. → A6
 
