@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "online": true,
+  "timestamp": "2026-09-25T05:21:00.020Z",
+  "conveyor": "STOPPED",
+  "fault_level": 8,
+  "motor_rpm": 0.0,
+  "sensor_id": "motor01",
+  "production_active": false,
+  "products": {
+    "spawned": 120,
+    "created": 113,
+    "expired": 0,
+    "in_flight": 7,
+    "last_product_id": "P-00000113"
+  },
+  "last_command": {
+    "command": "STOP",
+    "command_id": "9f1c2e7a-4b1d-4e0a-9a51-0f3b2c7d8e11",
+    "source": "mqtt",
+    "received_at": "2026-09-25T05:21:00.015Z",
+    "result": "APPLIED",
+    "reason": "INTERLOCK_CRITICAL",
+    "error": null
+  }
+}
