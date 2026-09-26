@@ -1,8 +1,20 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-5
+phase: plan
+base_commit: 940289749d9ba2559b43fc130e8bb13bc8e6956b
+started_at: '2026-09-26T20:42:10Z'
+steps:
+- do: 'domain/correlation.py compute(inspections, scores, cfg, clock=None): 04 2.2절
+    1~5번(as-of, max_gap, 사유 3개, scipy, 소수 4자리, at_default, best, curve, bins 최근 20),
+    2.3절 형식'
+  check: A2~A4
+  done: false
+- do: tests/unit/test_correlation.py(seed 고정 합성 데이터, 사유·동률·bins·형식)
+  check: A1~A4
+  done: false
+- do: 'tests/docker/test_correlation_db.py: 합성 행을 DB에 넣고 DbWriter에 compute 주입, 짧은
+    주기로 콜백 확인'
+  check: A5, A6
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(domain/correlation.py)부터 수행
