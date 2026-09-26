@@ -1,0 +1,61 @@
+# 개발·사람 확인용 단독 compose (docs/spec/07-runtime.md 4절). 시스템 compose는 integration 소유다.
+#   docker compose up -d --build   → http://localhost:8080 (make feed로 가짜 입력)
+#   docker compose down -v         → 완전 초기화(DB·예시 이미지 볼륨 삭제)
+# 호스트 포트는 127.0.0.1에만 연다. 겹치면 FOPS_HTTP_PORT·FOPS_MQTT_PORT·FOPS_DB_PORT로 바꾼다
+# (simulator 단독 compose와 1883이 겹친다).
+name: factory-operations
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.1.2-alpine
+    command: ["mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    ports:
+      - "127.0.0.1:${FOPS_MQTT_PORT:-1883}:1883"
+
+  db:
+    image: timescale/timescaledb:2.30.1-pg17
+    environment:
+      POSTGRES_USER: factory
+      POSTGRES_PASSWORD: factory
+      POSTGRES_DB: factory
+    volumes:
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/100_factory_operations.sql:ro
+    ports:
+      - "127.0.0.1:${FOPS_DB_PORT:-5432}:5432"
+    healthcheck:
+      # -h 127.0.0.1: initdb 중 소켓만 여는 임시 서버를 준비 완료로 오인하지 않게 한다
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "factory", "-d", "factory"]
+      interval: 2s
+      retries: 30
+
+  image-seed:
+    # 예시 이미지 8장을 P-00000001~300.jpg 이름으로 개발용 볼륨에 복사한다(fake_feed 2초 간격으로 10분 분량)
+    image: eclipse-mosquitto:2.1.2-alpine
+    command:
+      - sh
+      - -c
+      - 'mkdir -p /data/products /data/gradcam; i=1; while [ $$i -le 300 ]; do k=$$(( (i - 1) % 8 + 1 )); cp /seed/P-0000000$$k.jpg $$(printf /data/products/P-%08d.jpg $$i); i=$$((i + 1)); done'
+    volumes:
+      - image-storage:/data
+      - ./tests/fixtures/images:/seed:ro
+
+  factory-operations:
+    build: .
+    environment:
+      MQTT_URL: mqtt://mosquitto:1883
+      DATABASE_URL: postgresql://factory:factory@db:5432/factory
+      IMAGE_ROOT: /data
+    ports:
+      - "127.0.0.1:${FOPS_HTTP_PORT:-8080}:8080"
+    volumes:
+      - image-storage:/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+      image-seed:
+        condition: service_completed_successfully
+
+volumes:
+  image-storage: {}
