@@ -41,6 +41,8 @@ factory-operations/
 - DB 큐: `queue.Queue(maxsize=10000)`. 항목은 `05-storage.md` 2절의 쓰기 작업. 가득 차면 버리고 센다. DB가 느리거나 끊겨도 워커(Interlock)는 막히지 않는다.
 - JSON 파싱은 워커에서 한다. paho 콜백에서 하지 않는다.
 
+구현(`domain/worker.py`의 `Worker`, OPS-7A): `Worker(processor, inbound)`. `get(timeout)`의 대기는 다음 tick까지(최대 0.1초)이고, 꺼낸 것을 처리한 뒤 0.1초가 지났으면 `tick()`을 부른다. `handle`·`tick`의 예외는 `worker_error` ERROR 로그만 남기고 루프를 계속한다(운영자 명령이면 그 예외를 future에 넣어 HTTP가 500으로 답한다). `stop(timeout=2.0)`은 종료 표시 뒤 join.
+
 ## 3. StateStore
 
 `domain/state.py`. `threading.Lock` 하나로 보호한다. 워커와 DB 스레드가 쓰고 HTTP가 읽는다. HTTP는 락 안에서 필요한 값의 참조·얕은 복사만 꺼내고(`snapshot_view()`), JSON 만들기와 진동 솎기는 락 밖에서 한다. 저장된 객체(파싱된 메시지, numpy 배열)는 만든 뒤 바꾸지 않는다.
@@ -103,3 +105,7 @@ factory-operations/
 5. HTTP 응답 시작. `/healthz`는 이때부터 200.
 
 종료(SIGTERM): MQTT `disconnect`·`loop_stop` → 워커에 종료 표시를 넣고 join(2초) → DB 스레드가 남은 센서 배치를 쓰고 연결을 닫은 뒤 join(5초). 제한 시간을 넘기면 로그만 남기고 끝낸다.
+
+구현(`app.py`, OPS-7A):
+- `build_services(cfg)`가 StateStore, inbound 큐(2000), DB 큐(10000), `DbWriter`(콜백: `on_db_ok` → `StateStore.set_db_ok`, `on_summary` → `set_summary(summary, wall, mono)`, `on_correlation` → `set_correlation`, 계산 `functools.partial(correlation.compute, clock=clock)`), `MqttClient`, `Processor`(publisher = MqttClient, db_sink = DB 큐), `Worker`를 만든다(시작하지 않음). `build_app(cfg)`가 이것을 `create_app(cfg, state, inbound, clock, lifespan, commit=)`에 넘기고 lifespan에서 `Services.start()`·`stop()`을 부른다. 테스트는 `app.state.services`로 구성 요소를 본다.
+- 종료 로그 `service_stopped`의 `clean`은 워커·DB 스레드가 제한 시간 안에 끝났는지다.

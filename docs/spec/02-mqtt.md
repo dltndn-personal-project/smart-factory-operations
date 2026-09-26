@@ -8,7 +8,7 @@
 - 라이브러리: paho-mqtt 2.1.0(`DECISIONS.md` D-08). `mqtt.Client(callback_api_version=CallbackAPIVersion.VERSION2, client_id=mqtt.client_id, protocol=MQTTv311, clean_session=True)`.
 - `mqtt.url`은 `mqtt://host[:port]`만 받는다(포트 생략 시 1883). 다른 scheme이면 설정 오류.
 - 기동: `reconnect_delay_set(reconnect_min_s, reconnect_max_s)` → `max_queued_messages_set(max_queued)` → `connect_async(host, port, keepalive=keepalive_s)` → `loop_start()`. LWT는 두지 않는다(Operations 상태를 받는 Component가 없다).
-- 콜백은 paho 스레드에서 돈다. `on_connect`(성공): 2절 Topic을 한 번의 `subscribe([...])`로 구독, `mqtt_connected = True`, INFO 로그. 실패 reason code: WARNING, paho가 재시도. `on_disconnect`: `mqtt_connected = False`, WARNING(정상 종료 중이면 INFO). `on_message`: `Inbound`를 만들어 inbound 큐에 `put_nowait`만 한다.
+- 콜백은 paho 스레드에서 돈다. `on_connect`(성공): 2절 Topic을 한 번의 `subscribe([...])`로 구독, INFO 로그. 그 구독의 SUBACK(`on_subscribe`)을 받으면 `mqtt_connected = True`(`DECISIONS.md` D-50). 실패 reason code: WARNING, paho가 재시도. `on_disconnect`: `mqtt_connected = False`, WARNING(정상 종료 중이면 INFO). `on_message`: `Inbound`를 만들어 inbound 큐에 `put_nowait`만 한다.
 - 인증·TLS 없음(Shared 13절).
 
 | 설정 키 | 기본값 |
@@ -19,6 +19,10 @@
 | `mqtt.reconnect_min_s` | 1 |
 | `mqtt.reconnect_max_s` | 10 |
 | `mqtt.max_queued` | 100 |
+
+구현(`mqtt/client.py`의 `MqttClient`, OPS-7A):
+- `MqttClient(cfg, state, inbound_queue, clock, *, topics=, log=, client_factory=)`. `start()`(위 기동 순서), `stop()`(`disconnect` → `loop_stop`), `publish(topic, payload, qos, retain) -> bool`(4.2절). `client_factory`는 테스트가 paho 객체를 가짜로 바꿔 끼우는 자리다.
+- inbound 큐가 가득 차면 StateStore 카운터 `("inbound_queue_overflow", topic)`을 올리고 `queue_overflow` WARNING(topic별 억제). 스냅숏 `counters.queue_overflow`에 합산된다.
 
 ## 2. Topic
 

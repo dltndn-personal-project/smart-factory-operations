@@ -317,3 +317,10 @@
 - 결정: (a). `tests/unit/test_correlation.py`의 `synthetic(seed=0)`이고, `tests/docker/test_correlation_db.py`도 같은 생성 규칙과 seed 0을 쓴다. 08 3.4절 규칙과 acceptance 기대값은 바꾸지 않는다.
 - 이유: 08 3.4절은 "seed 고정"만 정하고 값은 정하지 않는다. 규칙과 기대값을 그대로 두고 방법의 정확성(평균 곡선 봉우리 13초, 계수는 scipy 값의 4자리 반올림)은 별도로 확인했다. (b)·(c)는 acceptance 명령이 가리키는 테스트의 의미를 바꾼다. 기본 seed 0은 고른 값이 아니라 첫 값이다.
 - 영향: `tests/unit/test_correlation.py`, `tests/docker/test_correlation_db.py`
+
+### D-50 `mqtt_connected`는 구독 SUBACK 뒤 true (OPS-7A)
+- 문맥: 02 1절은 `on_connect`에서 구독을 요청하고 바로 `mqtt_connected = True`로 두었다. 그러면 `/readyz`가 200이 된 직후 다른 client가 보낸 메시지가 구독 처리 전에 broker에 도착해 빠질 수 있다(흐름 연동 테스트·E2E가 `/readyz`를 시작 조건으로 쓴다, A-09).
+- 선택지: (a) `on_connect`에서 true (b) 그 구독의 SUBACK(`on_subscribe`, 같은 mid)을 받으면 true
+- 결정: (b). 연결 실패나 구독 요청 실패면 false로 남고 paho 재연결을 기다린다. 끊기면 false.
+- 이유: `/readyz` 200의 의미를 "입력을 받을 준비가 됨"으로 맞춘다. 차이는 한 번의 왕복(로컬 수 ms)이고, 그동안 발행(4.2절)이 막히는 것은 연결 직후라 영향이 없다.
+- 영향: `02-mqtt.md` 1절, `src/factory_operations/mqtt/client.py`
