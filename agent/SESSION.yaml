@@ -1,11 +1,11 @@
 task: OPS-10
-phase: plan
+phase: execute
 base_commit: 98e41dfa1cf376861e7b53d1386057ee16b01948
 started_at: '2026-09-26T19:07:10Z'
 steps:
 - do: SHARED_CONFIG.json contract_ref만 cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8로 변경
   check: A1
-  done: false
+  done: true
 - do: 90-shared 1절로 cb6dc3c INTERFACES(PdM Result, PdM Spectrum, Alarm Event)·CONVENTIONS를
     읽고 계획 5.1절 표와 비교(의미 차이면 멈춤)
   check: 5.1절 밖 차이 없음을 비교표로 PR 본문에
@@ -30,4 +30,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: phase execute 후 step 1(contract_ref)부터 수행
+next_action: 'step 2: 90-shared 1절로 cb6dc3c INTERFACES(PdM Result, PdM Spectrum, Alarm
+  Event)·CONVENTIONS를 읽고 계획 5.1절 표와 비교(의미 차이면 멈춤)'
