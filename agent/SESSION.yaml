@@ -22,10 +22,10 @@ steps:
   done: true
 - do: 'tests/fixtures/payloads/pdm.py: PdM fixture 템플릿 기반 pdm_result·pdm_spectrum'
   check: A10
-  done: false
+  done: true
 - do: tests/unit/test_payloads.py 작성, make test
   check: A1
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 6: tests/fixtures/payloads/pdm.py: PdM fixture 템플릿 기반 pdm_result·pdm_spectrum'
+next_action: 'step 7: tests/unit/test_payloads.py 작성, make test'
