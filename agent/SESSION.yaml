@@ -26,7 +26,8 @@ steps:
     bin 축, 이름 기반 계열 수집) 제거'
 - do: scripts/fake_feed.py가 있으면 확정 형식으로(OPS-9B 전이라 없음 확인)
   check: A5
-  done: false
+  done: true
+  note: scripts/fake_feed.py 없음(OPS-9B 전). OPS-9B가 확정 fixture 기준으로 만든다
 - do: 'spec: 02 3.6·3.7절, 08 3.2절, AGREEMENTS 머리말·A-01·A-05·A-06, README 머리말·6절, 07
     5절, COMPONENT.md, DECISIONS 채택 기록'
   check: A6
@@ -36,4 +37,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 5: scripts/fake_feed.py가 있으면 확정 형식으로(OPS-9B 전이라 없음 확인)'
+next_action: 'step 6: spec: 02 3.6·3.7절, 08 3.2절, AGREEMENTS 머리말·A-01·A-05·A-06, README
+  머리말·6절, 07 5절, COMPONENT.md, DECISIONS 채택 기록'
