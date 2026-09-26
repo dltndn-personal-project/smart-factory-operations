@@ -28,10 +28,12 @@ steps:
     맞춤. uvicorn access_log=False를 01 7절에 적음
 - do: tests/conftest.py 공용 fixture와 payload 예시, tests/unit/test_config.py·test_clock.py·test_log.py
   check: A1
-  done: false
+  done: true
+  note: 테스트 파일은 step 3·4에서 작성함. make test 23 passed
 - do: make test 확인 후 agent/config.yaml verify에 unit 추가, validate.py --remote
   check: A10
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 6: tests/conftest.py 공용 fixture와 payload 예시, tests/unit/test_config.py·test_clock.py·test_log.py'
+next_action: 'step 7: make test 확인 후 agent/config.yaml verify에 unit 추가, validate.py
+  --remote'
