@@ -9,7 +9,7 @@
 | H-1 | 계속. 특히 아래 task를 시작하기 전 | 아래 표 | 해당 task의 verify가 실패해 task가 멈춘다(`80-escalate.md` tool). 잘못 통과하지는 않는다 |
 | H-2 | OPS-9B merge 뒤 | HUM-1 | C-10 미충족 |
 
-Shared DOCUMENT_CHANGE(Alarm Event 포함) 게시·merge와 PR merge는 조율 agent가 한다(조율 C-01·C-04). 사람 할 일이 아니다. OPS-10의 착수 조건(Shared merge 알림)도 조율 agent가 챙긴다.
+Shared DOCUMENT_CHANGE(Alarm Event 포함) 게시·merge와 PR merge는 조율 agent가 한다(조율 C-01·C-04). 사람 할 일이 아니다. OPS-10의 착수 조건(Shared merge 알림)은 2026-09-27에 충족되었다(`cb6dc3c`).
 
 ## H-1이 특히 필요한 시점
 

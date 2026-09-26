@@ -161,44 +161,47 @@ PdM Result·PdM Spectrum 형식이 Shared에서 바뀌면 고칠 곳은 다음�
 
 ## 5. OPS-10 `contract_ref` 채택 (M5)
 
-착수 조건: **조율 agent가 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge를 알림**. 알림에는 Shared main의 merge commit SHA가 있다. `depends_on`은 OPS-2뿐이라 다른 task를 막지 않는다. 알림 없이 `agent.py next`가 OPS-10을 가리키면 시작하지 않는다(`README.md` 4절).
+착수 조건: **조율 agent가 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge를 알림** — **충족**(2026-09-27, Shared PR #7, merge commit `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`). 채택 대상은 이 commit이다. `depends_on`은 OPS-2뿐이라 다른 task를 막지 않는다. OPS-2 merge 뒤 바로 하면 OPS-7A·7B·9A·9B가 처음부터 확정 형식(`pdm.py` 템플릿, fake_feed)으로 만들어진다. 언제 끼워 넣을지는 조율 agent가 정한다(`README.md` 4·6절).
+
+### 5.1 확정본과 A-05·A-06의 차이 (2026-09-27, `cb6dc3c` INTERFACES를 읽고 정리)
+
+의미(윈도우 끝 `timestamp`, Simulator 시계, retain false, QoS 1/0, `rpm == 0` 미발행, 재가동 뒤 첫 결과 = 재가동 chunk + 1초)는 A-05·A-06과 같다. 형식이 더 엄격하다. OPS-10이 고칠 것:
+
+| 항목 | 지금 spec(A-05·A-06, 02 3.6·3.7절) | 확정본 | OPS-10 |
+|---|---|---|---|
+| PdM Result `window_start` | 선택 | 필수 | 없으면 `missing_field:window_start` |
+| PdM Result `anomaly_score` | 범위 검사 없음 | 0 이상 1 이하 | 범위 밖이면 `invalid_field:anomaly_score` |
+| PdM Result `model_version` | 선택 | 선택 | 그대로 |
+| PdM Spectrum 필드 | 숫자 배열이면 모두 계열(느슨한 해석), 간격 없으면 bin | `rpm`, `freq_step_hz`, `rot_hz`, `bpfo_hz`, `bpfi_hz`, `spectrum_x/y/z`, `envelope_x/y/z`, `window_start` 모두 필수 | 하나라도 없으면 거부(직전 표시 유지) |
+| PdM Spectrum 배열 | 길이 2~4096 | 여섯 개 길이가 같고 `floor(500 / freq_step_hz) + 1`, 원소는 유한한 0 이상, `freq_step_hz > 0` | 어기면 `invalid_field:<이름>` |
+| 패널 | 이름에 `envelope`면 포락선 패널 | 같음(`spectrum_*` 3계열, `envelope_*` 3계열) | 그대로. `rot_hz`·`bpfo_hz`·`bpfi_hz`는 `SpectrumPanels`에 담기만 하고 화면 표시선은 이 task에서 하지 않는다 |
+| 크기 | 256 KiB 상한 | 약 21 KB | 상한 유지 |
+| Alarm Event | A-02 | A-02와 같음 | 예시가 fixture와 같은지만 확인 |
+
+- 이 차이 때문에 OPS-2의 느슨한 해석 테스트 두 개(`test_spectrum_bins_without_step`: 간격 없음 → bin, `test_spectrum_no_series`: 배열 없음 → `no_series`)는 확정본에서 **거부**가 맞다. OPS-10은 이 두 테스트를 같은 이름으로 두고 기대값을 "거부(`missing_field:freq_step_hz` / `missing_field:spectrum_x`)"로 바꾼다. 느슨하게 바꾸는 것이 아니라 계약에 맞춰 더 엄격하게 하는 것이므로 이 계획이 허용한다(D-46). spec 08 3.2절 스펙트럼 목록도 같이 고친다.
 
 ```yaml
   - id: OPS-10
     milestone: M5
     type: chore
-    title: PdM Result·PdM Spectrum·Alarm Event 확정 Shared commit을 contract_ref로 채택하고 파서·fixture·spec을 맞춤
-    why: 조율 agent가 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge를 알린 뒤 시작한다. integration의 계약 검사가 Shared 한 곳을 기준으로 하도록 이 Component도 그 commit을 기준으로 삼고, A-05·A-06 가정과 확정본의 형식 차이를 PdM 형식 의존 자리(payloads 파서, fixture, fake_feed)에서 맞춘다 (조율 C-04·C-05, spec D-04, C-01)
+    title: Shared cb6dc3c(PdM Result·PdM Spectrum·Alarm Event 확정)를 contract_ref로 채택하고 파서·fixture·spec을 맞춤
+    why: 조율 agent가 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge를 알렸다(Shared PR #7, cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8). integration의 계약 검사가 Shared 한 곳을 기준으로 하도록 이 Component도 그 commit을 기준으로 삼고, A-05·A-06 가정과 확정본의 형식 차이(02-mqtt 계획 5.1절)를 PdM 형식 의존 자리에서 맞춘다 (조율 C-04·C-05, spec D-04·D-39·D-46, C-01)
     depends_on: [OPS-2]
     contract: [docs/INTERFACES.md, docs/CONVENTIONS.md]
-    scope: [SHARED_CONFIG.json, src/factory_operations/mqtt/payloads.py, tests/unit/test_payloads.py, tests/fixtures/payloads/**, scripts/fake_feed.py, tests/unit/test_fake_feed.py, docs/spec/02-mqtt.md, docs/spec/07-runtime.md, docs/spec/AGREEMENTS.md, docs/spec/README.md, docs/spec/DECISIONS.md, docs/COMPONENT.md]
+    scope: [SHARED_CONFIG.json, src/factory_operations/mqtt/payloads.py, tests/unit/test_payloads.py, tests/fixtures/payloads/**, scripts/fake_feed.py, tests/unit/test_fake_feed.py, docs/spec/02-mqtt.md, docs/spec/07-runtime.md, docs/spec/08-verification.md, docs/spec/AGREEMENTS.md, docs/spec/README.md, docs/spec/DECISIONS.md, docs/COMPONENT.md]
     acceptance:
       - id: A1
-        text: SHARED_CONFIG.json의 contract_ref가 Shared main에 포함된 d0c997c 이후 commit의 전체 SHA이고, 다른 필드는 main과 같다 (C-05)
+        text: SHARED_CONFIG.json의 contract_ref가 cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8이고 다른 필드는 main과 같다 (C-05)
         check:
           type: command
           run: |
-            sha=$(jq -er '.contract_ref | strings | select(test("^[0-9a-f]{40}$"))' SHARED_CONFIG.json) || { echo "contract_ref not a full SHA"; exit 1; }
+            test "$(jq -r .contract_ref SHARED_CONFIG.json)" = cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8 || { echo "contract_ref mismatch"; exit 1; }
             test "$(git show origin/main:SHARED_CONFIG.json | jq -S 'del(.contract_ref)')" = "$(jq -S 'del(.contract_ref)' SHARED_CONFIG.json)" || { echo "other fields changed"; exit 1; }
-            repo=dltndn-personal-project/smart-factory-shared-repository
-            s1=$(gh api "repos/$repo/compare/$sha...main" --jq .status) || exit 1
-            s2=$(gh api "repos/$repo/compare/d0c997c97129141d9853a42ce6e0d1f8f7309ae9...$sha" --jq .status) || exit 1
-            echo "main vs contract_ref: $s1, contract_ref vs d0c997c: $s2"
-            case "$s1" in ahead|identical) ;; *) exit 1;; esac
-            test "$s2" = ahead
       - id: A2
         text: 저장소 검사가 원격 비교까지 통과한다
         check: {type: command, run: "python3 agent/core/tools/validate.py --remote"}
       - id: A3
-        text: contract_ref의 Shared INTERFACES 목록에서 PdM Result, PdM Spectrum(factory/pdm/spectrum), Alarm Event 행의 상태가 확정이다
-        check:
-          type: command
-          run: |
-            sha=$(jq -r .contract_ref SHARED_CONFIG.json); f=$(mktemp)
-            gh api --method GET repos/dltndn-personal-project/smart-factory-shared-repository/contents/docs/INTERFACES.md -f ref="$sha" -H 'Accept: application/vnd.github.raw+json' > "$f" || exit 1
-            for t in pdm/result pdm/spectrum alarm/event; do grep -Eq "^\|.*\`factory/$t\`.*\| *확정 *\|\$" "$f" || { echo "not confirmed: $t"; exit 1; }; done
-      - id: A4
-        text: contract_ref INTERFACES의 PdM Result·Alarm Event 예시 JSON이 fixture(shared_pdm_result.json, shared_alarm_event.json)와 같고, 파서가 PdM Result·PdM Spectrum 확정 예시 fixture를 받으며, build_alarm의 키 집합이 Shared Alarm Event 예시와 같다 (C-01)
+        text: contract_ref INTERFACES의 PdM Result·Alarm Event 예시 JSON이 fixture(shared_pdm_result.json, shared_alarm_event.json)와 같고, 파서가 확정 예시 fixture(shared_pdm_spectrum.json 포함)를 받으며 확정본의 거부 예를 거부하고, build_alarm의 키 집합이 Shared Alarm Event 예시와 같다 (C-01)
         check:
           type: command
           run: |
@@ -206,8 +209,8 @@ PdM Result·PdM Spectrum 형식이 Shared에서 바뀌면 고칠 곳은 다음�
             gh api --method GET repos/dltndn-personal-project/smart-factory-shared-repository/contents/docs/INTERFACES.md -f ref="$sha" -H 'Accept: application/vnd.github.raw+json' > "$f" || exit 1
             python3 - "$f" <<'EOF' || exit 1
             import json, re, sys
-            blocks = []
             fence = "`" * 3
+            blocks = []
             for body in re.findall(fence + r"json\n(.*?)" + fence, open(sys.argv[1]).read(), re.S):
                 try:
                     blocks.append(json.loads(body))
@@ -217,26 +220,29 @@ PdM Result·PdM Spectrum 형식이 Shared에서 바뀌면 고칠 곳은 다음�
             print("not a Shared example:", bad)
             sys.exit(1 if bad else 0)
             EOF
-            make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_shared_pdm_result_example tests/unit/test_payloads.py::test_shared_pdm_spectrum_example tests/unit/test_payloads.py::test_build_alarm_matches_shared_example
+            make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_shared_pdm_result_example tests/unit/test_payloads.py::test_shared_pdm_result_reject_example tests/unit/test_payloads.py::test_shared_pdm_spectrum_example tests/unit/test_payloads.py::test_build_alarm_matches_shared_example
+      - id: A4
+        text: 5.1절 차이대로 PdM Result window_start 필수·anomaly_score 0~1, 스펙트럼 필수 필드·배열 길이 규칙(floor(500/freq_step_hz)+1, 여섯 개 같음)·유한한 0 이상 원소·freq_step_hz > 0을 검사하고, 간격 없음·배열 없음은 거부된다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_pdm_result_window_start_required tests/unit/test_payloads.py::test_pdm_result_anomaly_score_range tests/unit/test_payloads.py::test_spectrum_requires_all_fields tests/unit/test_payloads.py::test_spectrum_length_rule tests/unit/test_payloads.py::test_spectrum_values_finite_nonnegative tests/unit/test_payloads.py::test_spectrum_bins_without_step tests/unit/test_payloads.py::test_spectrum_no_series"}
       - id: A5
-        text: 단위 테스트 전체가 통과한다 (fake_feed가 있으면 그 메시지도 새 파서로 받아진다)
+        text: 단위 테스트 전체가 통과한다 (pdm.py 생성 함수와, 있으면 fake_feed 메시지도 확정 형식으로 받아진다)
         check: {type: command, run: "make test"}
       - id: A6
-        text: spec README·AGREEMENTS·COMPONENT.md가 채택한 SHA를 적고, README에서 PdM 가정 문구가 사라졌다
-        check: {type: command, run: "sha=$(jq -r .contract_ref SHARED_CONFIG.json) && grep -q \"$sha\" docs/spec/AGREEMENTS.md && grep -q \"$sha\" docs/spec/README.md && grep -q \"$sha\" docs/COMPONENT.md && ! grep -q '생산자 확정 전 가정' docs/spec/README.md"}
+        text: spec README·AGREEMENTS·COMPONENT.md가 채택한 SHA를 적고, README와 02 3.7절에서 PdM 가정·느슨한 해석 문구가 사라졌다
+        check: {type: command, run: "sha=cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8 && grep -q \"$sha\" docs/spec/AGREEMENTS.md && grep -q \"$sha\" docs/spec/README.md && grep -q \"$sha\" docs/COMPONENT.md && ! grep -q '생산자 확정 전 가정' docs/spec/README.md && ! grep -q '느슨한 해석' docs/spec/02-mqtt.md"}
     size: M
 ```
 
 단계 개요:
-1. 알림의 SHA로 `SHARED_CONFIG.json` `contract_ref`만 바꾼다. → A1
-2. `90-shared.md` 1절 명령으로 그 commit의 `docs/INTERFACES.md`, `docs/CONVENTIONS.md`를 읽고 A-01·A-02·A-05·A-06과 비교표를 만든다(PR 본문). **의미 차이**(4절)가 있으면 멈춘다(`contract`). Alarm Event가 A-02와 다르면 멈춘다(생산자 확정본을 Shared가 바꾼 것이므로 조율 agent가 정한다). → A3
-3. 확정 예시로 fixture `shared_pdm_result.json`, `shared_alarm_event.json`(원문 그대로), `shared_pdm_spectrum.json`(원문이 유효한 JSON이면 그대로, 배열을 줄여 적었으면 스칼라 필드 그대로 + 원문이 정한 길이의 seed 고정 배열)을 만들고 `SOURCES.md`에 출처를 적는다. 기존 `pdm_*.json` 가정 fixture는 확정본과 다르면 확정본에 맞추거나 지운다.
-4. `payloads.py`의 두 파서와 `tests/fixtures/payloads/pdm.py`의 템플릿(PdM fixture)을 확정본에 맞추고(필드 이름·필수 여부·스펙트럼 계열 구성) 테스트 세 개를 추가한다. 연동 테스트·smoke는 `pdm.py`를 쓰므로 따로 고치지 않는다(`make docker-test`·`make smoke` verify가 확인). → A4
-5. `scripts/fake_feed.py`가 있으면(OPS-9B 뒤) PdM 흉내를 확정 형식으로 바꾼다. `make test`가 `test_fake_feed.py`로 확인한다. → A5
-6. spec: `02-mqtt.md` 3.6·3.7절, `AGREEMENTS.md` 머리말·A-01·A-05·A-06(가정 → 확정 commit), `README.md` 머리말과 6절, `07-runtime.md` 5절(fake_feed 형식), `docs/COMPONENT.md` 외부 의존 절. 결정이 있으면 DECISIONS 새 ID. → A6
-7. `validate.py --remote`. → A2
+1. `SHARED_CONFIG.json` `contract_ref`만 `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`로 바꾼다. → A1
+2. `90-shared.md` 1절 명령으로 그 commit의 `docs/INTERFACES.md`(PdM Result, PdM Spectrum, Alarm Event 절), `docs/CONVENTIONS.md`를 읽고 5.1절 표와 다른 점이 없는지 확인한다. 5.1절 밖의 차이, 특히 **의미 차이**(4절)가 있으면 멈춘다(`contract`). PR 본문에 비교표를 적는다.
+3. fixture: `shared_pdm_result.json`, `shared_alarm_event.json`(원문 JSON 그대로), `shared_pdm_spectrum.json`(원문 예시의 스칼라 필드 그대로 + 여섯 배열은 seed 고정 501개, 소수 4자리, 0 이상. 원문 배열은 `"… 501개"` 설명 문자열이 있어 그대로 쓸 수 없다). 확정본의 거부 예(PdM Result `timestamp` 밀리초 없음·`window_start` 없음·소문자 `state`)를 테스트 입력으로 쓴다. 가정 fixture `pdm_result_draft.json`·`pdm_spectrum_*.json`은 지우거나 확정 형식으로 바꾸고, `pdm.py` 템플릿을 확정 fixture로 바꾼다. `SOURCES.md`에 출처(`cb6dc3c`) 기록. → A3
+4. `payloads.py` 두 파서를 5.1절대로 고치고 테스트를 추가·수정한다(`test_spectrum_bins_without_step`·`test_spectrum_no_series`는 이름을 두고 거부 기대로, D-46). 연동 테스트·smoke는 `pdm.py`를 쓰므로 따로 고치지 않는다(`make docker-test`·`make smoke` verify가 확인). → A3, A4
+5. `scripts/fake_feed.py`가 있으면(OPS-9B 뒤) PdM 흉내를 확정 형식(필드 전부, `rot_hz`·`bpfo_hz`·`bpfi_hz`, `envelope_x/y/z`)으로 바꾼다. → A5
+6. spec: `02-mqtt.md` 3.6·3.7절(확정 형식, 느슨한 해석 삭제), `08-verification.md` 3.2절 스펙트럼 테스트 목록, `AGREEMENTS.md` 머리말·A-01·A-05·A-06(가정 → `cb6dc3c` 확정), `README.md` 머리말과 6절, `07-runtime.md` 5절(fake_feed 형식), `docs/COMPONENT.md` 외부 의존 절, DECISIONS에 채택 기록. → A6
+7. `make test`, `validate.py --remote`. → A2, A5
 
 - `SHARED_ISSUE_STATUS.yaml`은 바꾸지 않는다. Shared Issue 검토는 사용자가 요청할 때만 한다(AGENTS.md Shared 절).
-- 확정본이 가정과 같아 코드 변경이 없어도 A4의 fixture와 테스트는 추가한다(확정본 기준의 회귀 검사).
+- 화면의 `rot_hz`·`bpfo_hz`·`bpfi_hz` 표시선은 선택 기능이라 이 task에 넣지 않았다. 필요하면 조율 agent가 화면 FIX task로 추가한다.
 
-읽을 spec: `AGREEMENTS.md` 머리말·A-01·A-02·A-05·A-06, 02 3.6·3.7절, 07 5절, `agent/core/process/90-shared.md` 1절, D-04·D-32.
+읽을 spec: 이 절 5.1, `AGREEMENTS.md` 머리말·A-01·A-02·A-05·A-06, 02 3.6·3.7절, 07 5절, 08 3.2절, `agent/core/process/90-shared.md` 1절, D-04·D-32·D-39·D-46.

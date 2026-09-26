@@ -19,3 +19,9 @@
 | 6 | OPS-4와 OPS-7A가 한 세션에 크다 (medium) | 부분 반영 | OPS-4는 나눴다: OPS-4A(DDL·Docker DB fixture·verify `docker`, 선행 OPS-1이라 M1과 병렬 가능)와 OPS-4B(DB 스레드). OPS-7A는 broker 재시작 테스트만 OPS-7B로 옮겼다. 앱 조립과 흐름 연동 테스트는 나누지 않았다: 조립은 흐름 테스트가 유일한 검증이라 떼면 검증 없는 task가 생긴다. `docs/plan/05-storage.md`, `02-mqtt.md` 3절, `08-verification.md` 3절, `00-overview.md` 2절, D-45 |
 | 7 | 화면 acceptance가 ID·문구·파일 제공만 봐서 polling·버튼·차트가 동작하지 않아도 통과 (low) | 미반영 | 브라우저 자동화(headless 브라우저)와 Node는 쓰지 않기로 spec이 정했다(D-34, 08 1절 도구 표). 동작은 OPS-9B A4가 개발용 compose에서 스냅숏·이미지·`POST /api/conveyor` STOP 적용까지 자동으로 보고, 화면 그리기·polling·버튼은 HUM-1(M-01·M-02·M-06)이 본다. toy 범위에서 JS 테스트 기반을 새로 두는 비용이 크다 |
 | 8 | HUM-1 acceptance가 계획은 10개, spec 08 7절은 manual 하나 (low) | 반영 | 항목마다 하나(M01~M10)로 정했다. 실패 항목만 `pending`으로 남겨 FIX 뒤 그 항목만 다시 보기 위해서다(simulator 선례). spec 08 7절을 이에 맞췄다. D-45 |
+
+## 리뷰 뒤 추가 반영
+
+| 번호 | 요지 | 판정 | 이유 / 반영 위치 |
+|---|---|---|---|
+| 추가 1 | 조율 agent 알림: Shared PR #7(PdM Result·PdM Spectrum·Alarm Event) merge, `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`. OPS-10 착수 조건 충족 | 반영 | 그 commit이 Shared main에 포함되고(`compare` identical) `d0c997c` 뒤이며(ahead), INTERFACES 목록의 세 행이 확정인 것을 원격 Contents API로 확인했다. 확정본을 A-05·A-06과 비교해 형식 차이(`window_start` 필수, `anomaly_score` 0~1, 스펙트럼 필수 필드·배열 길이·원소 규칙)를 정리하고, OPS-10을 그 SHA로 고정한 acceptance로 바꿨다. 확정 예시 PdM Result·Alarm Event는 유효한 JSON이라 fixture 동일성 검사가 가능하고, 스펙트럼 예시는 배열에 설명 문자열이 있어 파생 fixture를 쓴다. `docs/plan/02-mqtt.md` 5절, D-46 |

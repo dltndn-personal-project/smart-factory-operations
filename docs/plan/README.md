@@ -9,7 +9,7 @@
 2. 계획 파일은 사람이 읽는 원본이고, `agent/PLAN.yaml`은 도구(`agent.py`)가 실행하는 사본이다. 두 곳의 task 블록(id, milestone, type, title, why, depends_on, scope, acceptance, size, owner, contract)은 같아야 한다.
 3. 다르면 **PLAN.yaml이 이긴다**. 발견한 agent는 작업을 계속하고 PR 본문에 차이를 적는다. 조율 agent가 계획 파일을 PLAN.yaml에 맞게 고친다.
 4. 계획 파일의 단계 개요와 "읽을 spec"은 PLAN.yaml에 없다. `20-plan.md`에서 `SESSION.yaml` steps를 쓸 때 출발점으로 쓴다(8개 이하).
-5. 설계 결정은 `docs/spec/DECISIONS.md` 하나에 둔다. 이 계획의 결정은 D-37~D-45이다(D-45는 Codex 리뷰 반영).
+5. 설계 결정은 `docs/spec/DECISIONS.md` 하나에 둔다. 이 계획의 결정은 D-37~D-46이다(D-45는 Codex 리뷰 반영, D-46은 Shared 확정 반영).
 
 ## 2. task → 계획 파일 → spec
 
@@ -41,7 +41,7 @@
 
 기본은 **한 번에 task 하나, PLAN 순서**다(`00-overview.md` 2절 표 순서). task 하나 = 브랜치 하나 = PR 하나이고, 다음 task는 앞 PR이 merge된 최신 main에서 시작한다. `agent.py start`는 `depends_on`이 모두 `done`일 때만 시작한다.
 
-OPS-10은 예외다. `depends_on`은 OPS-2뿐이지만 **조율 agent가 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge를 알리기 전에는 시작하지 않는다**. `agent.py next`가 OPS-10을 가리켜도 알림이 없으면 시작하지 않고 세션 보고로 끝낸다. 알림이 오면 조율 agent가 OPS-2 뒤 아무 때나 다음 task로 끼워 넣을 수 있다(`02-mqtt.md` 5절).
+OPS-10은 예외다. `depends_on`은 OPS-2뿐이고 착수 조건은 **조율 agent의 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge 알림**이다. 이 조건은 2026-09-27에 충족되었다(Shared PR #7, `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`). PLAN 순서는 M5(OPS-9B 뒤)지만 조율 agent가 OPS-2 뒤 아무 때나 다음 task로 끼워 넣을 수 있고, OPS-2 바로 뒤가 가장 싸다(뒤 task의 PdM 메시지가 처음부터 확정 형식이 된다, `02-mqtt.md` 5절).
 
 병렬은 조율 agent가 속도가 필요할 때만 쓴다(D-41). 조건:
 - 두 task 모두 선행이 `done`이다.
@@ -137,7 +137,7 @@ evidence commit: <SHA> (agent/tasks/<ID>.yaml)
 - merge 조건(spec D-01): PR에 `agent/tasks/<ID>.yaml`이 `status: done`으로 있고, `Validate Component / validate` CI가 통과했고, PR 본문의 acceptance·verify가 모두 pass다. 병렬이면 4절 절차까지. 그 뒤 main에 merge하고 다음 task를 최신 main에서 띄운다.
 - merge 방식은 merge commit(`gh pr merge <번호> --merge`)이다. squash·rebase는 쓰지 않는다: `agent/tasks/<ID>.yaml`의 `commit`(evidence commit)이 main 이력에 남아야 한다(조율 C-01).
 - block을 받으면: 해제 조건을 해결한다(계획 수정 PR, FIX task 추가, spec 수정 task). 해결되면 `agent/tasks/<ID>.yaml`을 지워 다시 연다.
-- OPS-10: PdM spec merge 뒤 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event)가 Shared main에 merge되면 그 merge commit SHA를 실행 agent에 알리고 OPS-10을 띄운다(`02-mqtt.md` 5절). 확정본이 A-02·A-05·A-06과 의미가 다르면 어느 쪽을 맞출지 먼저 정한다(spec `AGREEMENTS.md` A-05 끝).
+- OPS-10: 착수 조건 충족(Shared PR #7 merge, `cb6dc3c`, 2026-09-27). 채택 SHA와 확정본과의 차이는 `02-mqtt.md` 5.1절에 적었다(의미 차이 없음, 형식이 더 엄격). OPS-2 merge 뒤 언제 끼워 넣을지 정한다. 권장은 OPS-2 바로 뒤(M1 subagent가 이어서 하거나 별도 subagent).
 - 사람 task: OPS-9B merge 뒤 책임자에게 HUM-1을 요청하고, 결과를 `08-verification.md` 3절대로 기록한다. OPS-10을 기다리지 않는다.
 - integration과의 경계: `/readyz`(A-09)와 Interlock 관찰 동작(A-11)은 OPS-6·OPS-7A가 spec대로 제공한다. E2E-3 단계 2의 STOP 제한 시간 2초 제안(A-11)과 `/readyz`를 E2E 시작 조건으로 쓰는 것은 integration spec이 받는다. operations에는 그 일을 하는 task가 없다.
 - Alarm Event의 Shared DOCUMENT_CHANGE 게시는 별도 subagent가 한다(조율 C-04). operations task가 아니다.

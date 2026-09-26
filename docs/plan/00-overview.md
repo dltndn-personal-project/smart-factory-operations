@@ -13,10 +13,10 @@
 | M2 저장과 분석 | DDL, DB 스레드(쓰기·배치·요약·재연결), 상관분석 | OPS-4A, OPS-4B, OPS-5 | `docker` | + Docker Desktop, `timescale/timescaledb:2.30.1-pg17` | 1.5~2분 |
 | M3 연동 | 스냅숏·HTTP API, 실제 Mosquitto·DB에 연결한 앱, broker 재연결, Interlock·Dashboard 지연 측정 | OPS-6, OPS-7A, OPS-7B | 없음(`docker`에 테스트 추가) | + `eclipse-mosquitto:2.1.2-alpine` | 3~4분(Dashboard 측정 60초 포함) |
 | M4 화면과 패키징 | 화면, 이미지 smoke, 개발용 compose와 가짜 입력 | OPS-8, OPS-9A, OPS-9B | `smoke` | + 인터넷(`python:3.12-slim`, 이미지 안 pip), `sips` | 5~6분(첫 이미지 빌드는 수 분 더) |
-| M5 계약 채택 | Shared 확정본(PdM Result·PdM Spectrum·Alarm Event)을 `contract_ref`로 채택하고 파서를 맞춤 | OPS-10 | 없음 | + `gh` 로그인, **Shared DOCUMENT_CHANGE merge** | 5~6분 |
+| M5 계약 채택 | Shared 확정본(PdM Result·PdM Spectrum·Alarm Event, `cb6dc3c`)을 `contract_ref`로 채택하고 파서를 맞춤 | OPS-10 | 없음 | + `gh` 로그인(Shared merge는 충족) | OPS-2 바로 뒤면 30초 미만, M4 뒤면 5~6분 |
 | M6 사람 확인 | 사람이 Dashboard 확인 목록을 통과시킴 | HUM-1 (`owner: human`) | 없음 | 맥북 Chrome·Safari, Docker | 없음(사람 약 20분) |
 
-M5는 M4 뒤에 두었지만 다른 단계를 막지 않는다. Shared 확정이 늦으면 M6을 먼저 한다(HUM-1은 OPS-10에 의존하지 않는다). 확정이 일찍 오면 OPS-2 뒤 아무 때나 끼워 넣는다(`README.md` 4절).
+M5는 M4 뒤에 두었지만 다른 단계를 막지 않는다(HUM-1은 OPS-10에 의존하지 않는다). 착수 조건인 Shared merge는 이 계획 PR 작성 중에 충족되었다(`cb6dc3c`). 그래서 조율 agent가 OPS-2 바로 뒤로 끼워 넣는 것을 권장한다(`README.md` 4절, `02-mqtt.md` 5절).
 
 PLAN.yaml에 넣을 milestone 블록(M0은 그대로 둔다. D-02·D-03):
 
@@ -48,8 +48,8 @@ PLAN.yaml에 넣을 milestone 블록(M0은 그대로 둔다. D-02·D-03):
   - id: M5
     outcome: PdM Result·PdM Spectrum·Alarm Event가 확정된 Shared commit을 contract_ref로 채택하고, 파서·fixture·spec이 그 확정본과 맞다
     exit_criteria:
-      - SHARED_CONFIG.json contract_ref가 그 Shared commit이고 validate.py --remote가 통과한다
-      - contract_ref의 INTERFACES 예시로 만든 fixture를 파서가 받고, build_alarm의 키가 Shared Alarm Event 예시와 같다
+      - SHARED_CONFIG.json contract_ref가 cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8이고 validate.py --remote가 통과한다
+      - contract_ref의 INTERFACES 예시로 만든 fixture를 파서가 받고 거부 예를 거부하며, build_alarm의 키가 Shared Alarm Event 예시와 같고, 확정본의 필수 필드·배열 규칙을 검사한다
   - id: M6
     outcome: 사람이 맥북 브라우저에서 Dashboard 확인 목록을 통과시켰다
     exit_criteria:
@@ -76,7 +76,7 @@ PLAN 순서(= `agent.py next`의 우선순위):
 | 12 | OPS-8 | M4 | OPS-6 | M | 화면(`web/static/`) | `06-dashboard.md` |
 | 13 | OPS-9A | M4 | OPS-7A | M | Dockerfile, `.dockerignore`, `scripts/smoke.py`, verify `smoke` | `07-runtime.md` |
 | 14 | OPS-9B | M4 | OPS-9A, OPS-8 | M | 개발용 compose, `scripts/fake_feed.py`, `make feed`, COMPONENT.md 실행 절 | `07-runtime.md` |
-| 15 | OPS-10 | M5 | OPS-2 (+ 조율 agent 알림) | M | `contract_ref` 채택, 확정본과 파서·fixture·spec 맞춤 | `02-mqtt.md` 5절 |
+| 15 | OPS-10 | M5 | OPS-2 (착수 조건 충족: Shared `cb6dc3c`) | M | `contract_ref` 채택, 확정본과 파서·fixture·spec 맞춤. OPS-2 바로 뒤 권장 | `02-mqtt.md` 5절 |
 | 16 | HUM-1 | M6 | OPS-9B | M | Dashboard 확인 M-01~M-10 (`owner: human`) | `08-verification.md` 3절 |
 
 의존 그래프(화살표는 "먼저 끝나야 한다"):
@@ -87,7 +87,7 @@ BOOT-1 ─▶ OPS-1 ─┬─▶ OPS-2 ─┬─▶ OPS-3A ─▶ OPS-3B ─┐
                  └─▶ OPS-4A ┼──────────────────────┘           └─▶ OPS-6 ─┼─▶ OPS-7A ─┬─▶ OPS-7B
                             │                                             │           └─▶ OPS-9A ─┐
                             │                                             └─▶ OPS-8 ──────────────┴─▶ OPS-9B ─▶ HUM-1
-                            └─▶ OPS-10   (조율 agent가 Shared DOCUMENT_CHANGE merge를 알린 뒤에만)
+                            └─▶ OPS-10   (Shared merge 알림 충족 cb6dc3c. OPS-2 바로 뒤 권장)
 ```
 
 - `depends_on`은 실제 선행만 적는다. 그래서 한 줄기가 막혀도(`agent.py block`) `next`가 다른 줄기의 task를 고른다.
@@ -101,7 +101,7 @@ BOOT-1 ─▶ OPS-1 ─┬─▶ OPS-2 ─┬─▶ OPS-3A ─▶ OPS-3B ─┐
 
 | ID | 확인 | task(acceptance) |
 |---|---|---|
-| C-01 | 파서 6종의 받음·거부, Conveyor Control·Alarm Event 생성 형식 | OPS-2(A2~A7), OPS-10(A4 Shared 확정 예시) |
+| C-01 | 파서 6종의 받음·거부, Conveyor Control·Alarm Event 생성 형식 | OPS-2(A2~A7), OPS-10(A3 Shared 확정 예시, A4 확정 규칙) |
 | C-02 | S-01~S-12, L-01~L-11 | OPS-3B(A2, A3) |
 | C-03 | initdb 적용·재실행, 테이블 8개·view·hypertable | OPS-4A(A2, A3 DDL이 spec과 같음) |
 | C-04 | 실제 broker·DB에서 표대로 행, 결합 값 | OPS-7A(A3 `test_rows_and_joins`), OPS-4B(A2 작업별 행) |

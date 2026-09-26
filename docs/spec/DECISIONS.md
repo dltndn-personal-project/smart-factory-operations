@@ -287,3 +287,10 @@
   - OPS-1은 `config/default.yaml`의 키 집합과 기본값을 spec 설정 표 전체와 대조한다(리뷰 4).
 - 이유: 한 세션 크기, 병렬 검증의 정확성, 사람 확인의 재확인 단위, 설정 누락 방지.
 - 영향: `docs/plan/05-storage.md`, `docs/plan/08-verification.md` 3절, `docs/plan/07-runtime.md` OPS-9A, `docs/plan/01-core.md` OPS-1 A7, `08-verification.md` 3.7·7절
+
+### D-46 OPS-10 채택 대상과 확정본 차이
+- 문맥: 계획 작성 중 조율 agent가 Shared PR #7(PdM Result·PdM Spectrum·Alarm Event DOCUMENT_CHANGE) merge를 알렸다(merge commit `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`). 확정본을 읽어 보니 의미는 A-05·A-06과 같고, 형식이 더 엄격하다: PdM Result `window_start` 필수·`anomaly_score` 0~1, PdM Spectrum은 `rpm`·`freq_step_hz`·`rot_hz`·`bpfo_hz`·`bpfi_hz`·`spectrum_x/y/z`·`envelope_x/y/z`가 모두 필수이고 배열 길이 `floor(500 / freq_step_hz) + 1`, 원소는 유한한 0 이상. Alarm Event는 A-02와 같다.
+- 선택지: (a) OPS-2부터 확정 형식으로 구현(spec 02 3.6·3.7절을 이 PR에서 고침) (b) OPS-2는 확정 spec대로(가정) 두고 OPS-10이 채택과 함께 맞춤
+- 결정: (b). OPS-10의 채택 대상을 `cb6dc3c`로 고정하고 차이를 `docs/plan/02-mqtt.md` 5.1절 표로 적어 acceptance로 검사한다. 느슨한 해석 테스트 두 개(`test_spectrum_bins_without_step`, `test_spectrum_no_series`)는 이름을 두고 기대값을 거부로 바꾼다. 계약에 맞춰 검사를 더 엄격하게 하는 변경이라 acceptance 약화가 아니다. OPS-2 바로 뒤에 OPS-10을 하도록 조율 agent에 권장한다.
+- 이유: 계약 채택은 `contract_ref`와 함께 한 PR에서 추적되어야 하고(조율 C-05), spec 수정·채택을 한 task에 모으면 PdM 형식 의존 자리(D-39)만 고치면 된다. OPS-2 바로 뒤에 하면 되돌리는 비용은 파서 두 개와 테스트 몇 개뿐이다.
+- 영향: `docs/plan/02-mqtt.md` 5절, `docs/plan/00-overview.md`, `docs/plan/README.md` 4·6절, `00-overview.md` 6절
