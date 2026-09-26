@@ -12,7 +12,8 @@ steps:
   done: true
 - do: app.py lifespan 조립(StateStore → DbWriter(요약·상관분석 콜백) → 워커 → MQTT → HTTP create_app), 종료 역순·제한 시간, __main__ serve
   check: A6, A7
-  done: false
+  done: true
+  note: __main__.py는 바꿀 것이 없었다(build_app(cfg) 그대로)
 - do: 'tests/docker/conftest.py: mqtt_broker(빈 포트 고정, D-43), running_app(uvicorn 스레드, /readyz 200까지 15초, broker·DB 주소 인자), harness(SUBACK·PUBACK 대기), wait_snapshot'
   check: make docker-test 기존 테스트 통과
   done: false
@@ -27,4 +28,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 3 app.py 조립
+next_action: step 4 tests/docker/conftest.py fixture
