@@ -9,7 +9,7 @@ steps:
 - do: pyproject.toml(pytest 설정), requirements*.txt(07 7절), Makefile(venv·test·run),
     .env.example
   check: A8
-  done: false
+  done: true
 - do: 'config.py와 config/default.yaml: 모든 설정 절, extra=forbid, overlay 깊은 병합, 환경 변수,
     범위 검사, 종료 코드 2'
   check: A2, A6, A7
@@ -28,5 +28,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 2: pyproject.toml(pytest 설정), requirements*.txt(07 7절), Makefile(venv·test·run),
-  .env.example'
+next_action: 'step 3: config.py와 config/default.yaml: 모든 설정 절, extra=forbid, overlay
+  깊은 병합, 환경 변수, 범위 검사, 종료 코드 2'

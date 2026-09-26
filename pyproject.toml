@@ -1,0 +1,10 @@
+[project]
+name = "factory-operations"
+version = "0.1.0"
+description = "Smart Factory Operations & Control: MQTT 수신, Interlock, 저장, Dashboard"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["docker: Docker로 Mosquitto·TimescaleDB를 띄우는 연동 테스트"]
