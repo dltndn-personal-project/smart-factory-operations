@@ -3,7 +3,7 @@
 PYTHON ?= python3
 VENV := .venv
 
-.PHONY: venv test run
+.PHONY: venv test docker-test run
 
 venv: $(VENV)/.installed
 
@@ -15,6 +15,9 @@ $(VENV)/.installed: requirements.txt requirements-dev.txt
 
 test: venv
 	$(VENV)/bin/python -m pytest -q -m "not docker" tests
+
+docker-test: venv
+	$(VENV)/bin/python -m pytest -q -m docker tests
 
 run: venv
 	$(VENV)/bin/python -m factory_operations serve
