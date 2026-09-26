@@ -100,14 +100,36 @@ REQUIRED = {
     ),
     "pdm": (
         P.parse_pdm_result,
-        "pdm_result_draft",
+        "shared_pdm_result",
         "factory/pdm/result",
         {
             "sensor_id": ["MOTOR01", None],
             "timestamp": ["2026-09-25T05:20:14.4Z", None],
-            "anomaly_score": ["0.82", True, None],
+            "window_start": ["2026-09-25T05:20:13Z", None],
+            "anomaly_score": ["0.82", True, None, -0.01, 1.0001],
             "health_index": [101, -1, 18.5, "18", None],
             "state": ["critical", "ALARM", None],
+        },
+    ),
+    "spectrum": (
+        P.parse_pdm_spectrum,
+        "shared_pdm_spectrum",
+        "factory/pdm/spectrum",
+        {
+            "sensor_id": ["Motor01", None],
+            "timestamp": ["x", None],
+            "window_start": ["2026-09-25T05:20:13.4Z", None],
+            "rpm": ["1800", True, None],
+            "freq_step_hz": [0, -1.0, "1.0", None],
+            "rot_hz": ["30", None],
+            "bpfo_hz": [None, [107.5]],
+            "bpfi_hz": [None, False],
+            "spectrum_x": [[0.1] * 500, [0.1] * 502, None, "0.1"],
+            "spectrum_y": [[-0.1] + [0.1] * 500, [0.1] * 500 + ["a"]],
+            "spectrum_z": [[0.1] * 500 + [True], {}],
+            "envelope_x": [[0.1] * 250, None],
+            "envelope_y": [[0.0] * 500 + [None]],
+            "envelope_z": [[-0.0001] * 501],
         },
     ),
 }
@@ -197,12 +219,6 @@ def test_missing_field_reasons(ex):
         for field in fields:
             r = parse(topic, enc(without(ex[name], field)))
             assert r == P.Rejected(f"missing_field:{field}"), (kind, field, r)
-    # 스펙트럼 필수 필드
-    base = ex["pdm_spectrum_basic"]
-    for field in ("sensor_id", "timestamp"):
-        assert P.parse_pdm_spectrum("factory/pdm/spectrum", enc(without(base, field))) == P.Rejected(
-            f"missing_field:{field}"
-        )
     # 첫 실패 하나만 사유가 된다(표 순서)
     both = without(without(ex["shared_product_created"], "timestamp"), "image_path")
     assert P.parse_product_created("t", enc(both)) == P.Rejected("missing_field:timestamp")
@@ -222,10 +238,6 @@ def test_invalid_field_reasons(ex):
     assert P.parse_sensor_vibration(SENSOR_TOPIC, raw) == P.Rejected("invalid_field:rpm")
     raw = enc(ex["shared_sensor_vibration"]).replace(b'"vibration_y": [', b'"vibration_y": [1e400, ')
     assert P.parse_sensor_vibration(SENSOR_TOPIC, raw) == P.Rejected("invalid_field:vibration_y")
-    # 스펙트럼 필수 필드 형식
-    base = ex["pdm_spectrum_basic"]
-    assert P.parse_pdm_spectrum("t", enc(with_(base, sensor_id="Motor"))) == P.Rejected("invalid_field:sensor_id")
-    assert P.parse_pdm_spectrum("t", enc(with_(base, timestamp="x"))) == P.Rejected("invalid_field:timestamp")
 
 
 def test_int_accepts_integral_float(ex):
@@ -253,7 +265,8 @@ def test_unsupported_schema_version(ex):
         ("shared_product_created", P.parse_product_created, "t"),
         ("shared_vision_result", P.parse_vision_result, "t"),
         ("pdm_result_draft", P.parse_pdm_result, "t"),
-        ("pdm_spectrum_basic", P.parse_pdm_spectrum, "t"),
+        ("shared_pdm_result", P.parse_pdm_result, "t"),
+        ("shared_pdm_spectrum", P.parse_pdm_spectrum, "t"),
     ]
     for name, parse, topic in cases:
         for bad in (2, 0, "1", 1.0, True, None):
@@ -292,14 +305,11 @@ def test_optional_fields_become_null(ex):
     assert (r.confidence, r.bbox, r.gradcam_path) == (0.93, (250, 301, 330, 352), "gradcam/P-00000113.png")
     assert r.nulled == ()
 
-    d = ex["pdm_result_draft"]
-    r = P.parse_pdm_result("t", enc(with_(d, window_start="yesterday", model_version="")))
-    assert isinstance(r, P.PdmResult)
-    assert (r.window_start, r.model_version) == (None, None)
-    r = P.parse_pdm_result("t", enc(without(without(d, "window_start"), "model_version")))
-    assert isinstance(r, P.PdmResult) and r.window_start is None and r.model_version is None
-    # 범위는 검사하지 않는다(A-05 가정)
-    assert P.parse_pdm_result("t", enc(with_(d, anomaly_score=3.2))).anomaly_score == 3.2
+    d = ex["shared_pdm_result"]
+    r = P.parse_pdm_result("t", enc(with_(d, model_version="")))
+    assert isinstance(r, P.PdmResult) and r.model_version is None and r.nulled == ("model_version",)
+    r = P.parse_pdm_result("t", enc(without(d, "model_version")))
+    assert isinstance(r, P.PdmResult) and r.model_version is None and r.nulled == ()
 
     ls = ex["shared_line_status"]
     r = P.parse_line_status("t", enc(with_(ls, products={"spawned": 1})))
@@ -379,61 +389,179 @@ def _series(panel):
 
 
 def test_spectrum_single_panel(ex):
-    r = P.parse_pdm_spectrum("factory/pdm/spectrum", enc(ex["pdm_spectrum_basic"]))
+    # 확정본(cb6dc3c)에서는 원 스펙트럼 패널 하나에 spectrum_x/y/z 세 계열, 간격 freq_step_hz
+    src = ex["shared_pdm_spectrum"]
+    r = P.parse_pdm_spectrum("factory/pdm/spectrum", enc(src))
     assert isinstance(r, P.SpectrumPanels)
-    assert r.sensor_id == "motor01"
-    assert r.timestamp == parse_ts("2026-09-25T05:20:14.400Z")
-    assert r.window_start == parse_ts("2026-09-25T05:20:13.400Z")
-    (panel,) = r.panels
+    panel = r.panels[0]
     assert (panel.title, panel.x_start, panel.x_step, panel.x_unit) == ("스펙트럼", 0.0, 1.0, "Hz")
     assert _series(panel) == [(f"spectrum_{a}", 501, np.float32) for a in "xyz"]
-    np.testing.assert_allclose(panel.series[0].values, np.asarray(ex["pdm_spectrum_basic"]["spectrum_x"], np.float32))
-    # 시작 주파수
-    r = P.parse_pdm_spectrum("t", enc(with_(ex["pdm_spectrum_basic"], freq_start_hz=5.0, freq_step_hz=0.5)))
-    assert (r.panels[0].x_start, r.panels[0].x_step) == (5.0, 0.5)
+    np.testing.assert_allclose(panel.series[0].values, np.asarray(src["spectrum_x"], np.float32))
+    # 간격 0.5 Hz면 길이 1001
+    half = with_(src, freq_step_hz=0.5, **{k: [0.0] * 1001 for k in P.SPECTRUM_ARRAYS})
+    r = P.parse_pdm_spectrum("t", enc(half))
+    assert (r.panels[0].x_step, len(r.panels[0].series[0].values)) == (0.5, 1001)
 
 
 def test_spectrum_envelope_panel(ex):
-    r = P.parse_pdm_spectrum("t", enc(ex["pdm_spectrum_envelope"]))
+    r = P.parse_pdm_spectrum("t", enc(ex["shared_pdm_spectrum"]))
     assert [p.title for p in r.panels] == ["스펙트럼", "포락선 스펙트럼"]
     spec, env = r.panels
     assert _series(spec) == [(f"spectrum_{a}", 501, np.float32) for a in "xyz"]
-    assert _series(env) == [("envelope_y", 501, np.float32)]
+    assert _series(env) == [(f"envelope_{a}", 501, np.float32) for a in "xyz"]
     assert (env.x_start, env.x_step, env.x_unit) == (0.0, 1.0, "Hz")
-    # 포락선 간격 필드가 있으면 그것
-    r = P.parse_pdm_spectrum("t", enc(with_(ex["pdm_spectrum_envelope"], envelope_freq_step_hz=0.25)))
-    assert (r.panels[0].x_step, r.panels[1].x_step) == (1.0, 0.25)
-    # 포락선만 있어도 받는다
-    only_env = {k: v for k, v in ex["pdm_spectrum_envelope"].items() if not k.startswith("spectrum_")}
-    r = P.parse_pdm_spectrum("t", enc(only_env))
-    assert [p.title for p in r.panels] == ["포락선 스펙트럼"]
 
 
 def test_spectrum_bins_without_step(ex):
-    r = P.parse_pdm_spectrum("t", enc(ex["pdm_spectrum_nostep"]))
-    (panel,) = r.panels
-    assert (panel.x_start, panel.x_step, panel.x_unit) == (0.0, 1.0, "bin")
-    assert len(panel.series) == 3
-    # 간격이 양수가 아니면 모르는 것으로 본다
-    r = P.parse_pdm_spectrum("t", enc(with_(ex["pdm_spectrum_basic"], freq_step_hz=0)))
-    assert r.panels[0].x_unit == "bin"
+    # 확정본에서 freq_step_hz는 필수다(D-46: 느슨한 해석의 bin 축 대신 거부)
+    r = P.parse_pdm_spectrum("t", enc(without(ex["shared_pdm_spectrum"], "freq_step_hz")))
+    assert r == P.Rejected("missing_field:freq_step_hz")
 
 
 def test_spectrum_no_series(ex):
-    base = {k: v for k, v in ex["pdm_spectrum_basic"].items() if not k.startswith("spectrum_")}
-    assert P.parse_pdm_spectrum("t", enc(base)) == P.Rejected("no_series")
-    # 길이 2~4096 밖, 숫자가 아닌 원소가 섞인 배열은 계열이 아니다
-    odd = with_(base, spectrum_x=[0.1], spectrum_y=[0.1] * 4097, spectrum_z=[0.1, "a"], other=[True, False])
-    assert P.parse_pdm_spectrum("t", enc(odd)) == P.Rejected("no_series")
+    # 배열이 하나도 없으면 첫 배열 필드가 사유가 된다(D-46: no_series 대신 거부)
+    base = {k: v for k, v in ex["shared_pdm_spectrum"].items() if k not in P.SPECTRUM_ARRAYS}
+    assert P.parse_pdm_spectrum("t", enc(base)) == P.Rejected("missing_field:spectrum_x")
 
 
 def test_spectrum_too_large(ex):
-    big = with_(ex["pdm_spectrum_basic"], padding="x" * (300 * 1024))
+    big = with_(ex["shared_pdm_spectrum"], padding="x" * (300 * 1024))
     raw = enc(big)
     assert len(raw) > 256 * 1024
     assert P.parse_pdm_spectrum("t", raw) == P.Rejected("too_large")
     # 크기 검사가 JSON보다 먼저다
     assert P.parse_pdm_spectrum("t", b"{" * (300 * 1024)) == P.Rejected("too_large")
+
+
+def test_shared_pdm_result_example(payload_examples):
+    src = payload_examples["shared_pdm_result"]
+    r = P.parse_pdm_result("factory/pdm/result", enc(src))
+    assert r == P.PdmResult(
+        sensor_id="motor01",
+        timestamp=parse_ts("2026-09-25T05:20:14.400Z"),
+        anomaly_score=0.7518,
+        health_index=24,
+        state="CRITICAL",
+        window_start=parse_ts("2026-09-25T05:20:13.400Z"),
+        model_version="v1",
+    )
+
+
+def test_shared_pdm_result_reject_example():
+    # Shared cb6dc3c INTERFACES PdM Result "거부해야 할 예"
+    raw = b'{"schema_version":1,"sensor_id":"motor01","timestamp":"2026-09-25T05:20:14Z","anomaly_score":0.1,"health_index":85,"state":"normal"}'
+    assert isinstance(P.parse_pdm_result("factory/pdm/result", raw), P.Rejected)
+    obj = json.loads(raw)
+    # 이유 하나씩: 밀리초 없는 timestamp, window_start 없음, 소문자 state
+    good = {**obj, "timestamp": "2026-09-25T05:20:14.000Z", "window_start": "2026-09-25T05:20:13.000Z", "state": "NORMAL"}
+    assert isinstance(P.parse_pdm_result("t", enc(good)), P.PdmResult)
+    assert P.parse_pdm_result("t", enc({**good, "timestamp": "2026-09-25T05:20:14Z"})) == P.Rejected(
+        "invalid_field:timestamp"
+    )
+    assert P.parse_pdm_result("t", enc(without(good, "window_start"))) == P.Rejected("missing_field:window_start")
+    assert P.parse_pdm_result("t", enc({**good, "state": "normal"})) == P.Rejected("invalid_field:state")
+
+
+def test_shared_pdm_spectrum_example(payload_examples):
+    src = payload_examples["shared_pdm_spectrum"]
+    r = P.parse_pdm_spectrum("factory/pdm/spectrum", enc(src))
+    assert isinstance(r, P.SpectrumPanels)
+    assert (r.sensor_id, r.timestamp, r.window_start) == (
+        "motor01",
+        parse_ts("2026-09-25T05:20:14.400Z"),
+        parse_ts("2026-09-25T05:20:13.400Z"),
+    )
+    assert (r.rpm, r.rot_hz, r.bpfo_hz, r.bpfi_hz) == (1800.0, 30.0, 107.54, 162.46)
+    for panel in r.panels:
+        for series in panel.series:
+            np.testing.assert_allclose(series.values, np.asarray(src[series.name], np.float32))
+            assert not series.values.flags.writeable
+    # Shared "거부해야 할 예": envelope_z 없음, spectrum_x 길이 500, freq_step_hz 0
+    assert P.parse_pdm_spectrum("t", enc(without(src, "envelope_z"))) == P.Rejected("missing_field:envelope_z")
+    assert P.parse_pdm_spectrum("t", enc(with_(src, spectrum_x=src["spectrum_x"][:500]))) == P.Rejected(
+        "invalid_field:spectrum_x"
+    )
+    assert P.parse_pdm_spectrum("t", enc(with_(src, freq_step_hz=0))) == P.Rejected("invalid_field:freq_step_hz")
+
+
+def test_pdm_result_window_start_required(ex):
+    d = ex["shared_pdm_result"]
+    assert P.parse_pdm_result("t", enc(without(d, "window_start"))) == P.Rejected("missing_field:window_start")
+    assert P.parse_pdm_result("t", enc(with_(d, window_start=None))) == P.Rejected("invalid_field:window_start")
+    assert P.parse_pdm_result("t", enc(with_(d, window_start="yesterday"))) == P.Rejected(
+        "invalid_field:window_start"
+    )
+
+
+def test_pdm_result_anomaly_score_range(ex):
+    d = ex["shared_pdm_result"]
+    for ok in (0, 0.0, 0.5, 1, 1.0):
+        assert P.parse_pdm_result("t", enc(with_(d, anomaly_score=ok))).anomaly_score == ok
+    for bad in (-0.0001, 1.0001, 3.2, -1):
+        assert P.parse_pdm_result("t", enc(with_(d, anomaly_score=bad))) == P.Rejected("invalid_field:anomaly_score")
+
+
+SPECTRUM_FIELDS = (
+    "sensor_id",
+    "timestamp",
+    "window_start",
+    "rpm",
+    "freq_step_hz",
+    "rot_hz",
+    "bpfo_hz",
+    "bpfi_hz",
+    "spectrum_x",
+    "spectrum_y",
+    "spectrum_z",
+    "envelope_x",
+    "envelope_y",
+    "envelope_z",
+)
+
+
+def test_spectrum_requires_all_fields(ex):
+    src = ex["shared_pdm_spectrum"]
+    assert set(SPECTRUM_FIELDS) | {"schema_version"} == set(src)
+    for field in SPECTRUM_FIELDS:
+        assert P.parse_pdm_spectrum("t", enc(without(src, field))) == P.Rejected(f"missing_field:{field}"), field
+    # 모르는 필드는 무시한다
+    assert isinstance(P.parse_pdm_spectrum("t", enc(with_(src, extra=[1.0, 2.0]))), P.SpectrumPanels)
+
+
+def test_spectrum_length_rule(ex):
+    src = ex["shared_pdm_spectrum"]
+    # 여섯 개 길이가 같고 floor(500 / freq_step_hz) + 1
+    for step, n in ((1.0, 501), (2.0, 251), (0.5, 1001), (3.0, 167), (0.3, 1667)):
+        msg = with_(src, freq_step_hz=step, **{k: [0.0] * n for k in P.SPECTRUM_ARRAYS})
+        r = P.parse_pdm_spectrum("t", enc(msg))
+        assert isinstance(r, P.SpectrumPanels), (step, r)
+        assert all(len(s.values) == n for p in r.panels for s in p.series)
+    # 간격과 길이가 맞지 않음
+    msg = with_(src, freq_step_hz=2.0)
+    assert P.parse_pdm_spectrum("t", enc(msg)) == P.Rejected("invalid_field:spectrum_x")
+    # 하나만 길이가 다름
+    for name in P.SPECTRUM_ARRAYS:
+        msg = with_(src, **{name: src[name] + [0.0]})
+        assert P.parse_pdm_spectrum("t", enc(msg)) == P.Rejected(f"invalid_field:{name}"), name
+
+
+def test_spectrum_values_finite_nonnegative(ex):
+    src = ex["shared_pdm_spectrum"]
+    for name in P.SPECTRUM_ARRAYS:
+        neg = list(src[name])
+        neg[100] = -0.0001
+        assert P.parse_pdm_spectrum("t", enc(with_(src, **{name: neg}))) == P.Rejected(f"invalid_field:{name}")
+        # 길이는 맞고 원소 하나가 inf(JSON 1e400)
+        marked = list(src[name])
+        marked[7] = 123456.789
+        raw = enc(with_(src, **{name: marked})).replace(b"123456.789", b"1e400")
+        assert len(json.loads(raw)[name]) == 501
+        assert P.parse_pdm_spectrum("t", raw) == P.Rejected(f"invalid_field:{name}")
+    for bad in (0, -1.0, "1.0", True):
+        assert P.parse_pdm_spectrum("t", enc(with_(src, freq_step_hz=bad))) == P.Rejected("invalid_field:freq_step_hz")
+    # 0은 허용
+    zeros = with_(src, **{k: [0.0] * 501 for k in P.SPECTRUM_ARRAYS})
+    assert isinstance(P.parse_pdm_spectrum("t", enc(zeros)), P.SpectrumPanels)
 
 
 def test_build_conveyor_shape(payload_examples):
@@ -466,6 +594,24 @@ A02_EXAMPLE = {
     "health_index": 18,
     "anomaly_score": 0.82,
 }
+
+
+def test_build_alarm_matches_shared_example(payload_examples):
+    shared = payload_examples["shared_alarm_event"]
+    alarm = P.Alarm(
+        alarm_id=shared["alarm_id"],
+        timestamp=parse_ts(shared["timestamp"]),
+        raised_at=parse_ts(shared["raised_at"]),
+        sensor_id=shared["sensor_id"],
+        severity=shared["severity"],
+        previous_state=shared["previous_state"],
+        health_index=shared["health_index"],
+        anomaly_score=shared["anomaly_score"],
+    )
+    msg = P.build_alarm(alarm)
+    assert set(msg) == set(shared)
+    assert list(msg) == list(shared)
+    assert msg == shared
 
 
 def test_build_alarm_shape():
@@ -526,7 +672,7 @@ def test_parse_dispatch(ex):
 def test_pdm_helpers_match_fixtures(payload_examples):
     ts = datetime(2026, 9, 25, 6, 0, 1, 500000, tzinfo=UTC)
     msg = pdm.pdm_result("motor01", ts, "WARNING", 45, 0.55)
-    assert set(msg) == set(payload_examples["pdm_result_draft"])
+    assert set(msg) == set(payload_examples["shared_pdm_result"])
     r = P.parse_pdm_result("factory/pdm/result", pdm.to_bytes(msg))
     assert isinstance(r, P.PdmResult)
     assert (r.sensor_id, r.timestamp, r.state, r.health_index, r.anomaly_score) == ("motor01", ts, "WARNING", 45, 0.55)
@@ -539,7 +685,7 @@ def test_pdm_helpers_match_fixtures(payload_examples):
     assert "window_start" not in msg
 
     spec = pdm.pdm_spectrum("motor01", ts)
-    assert set(spec) == set(payload_examples["pdm_spectrum_envelope"])
+    assert set(spec) == set(payload_examples["shared_pdm_spectrum"])
     r = P.parse_pdm_spectrum("factory/pdm/spectrum", pdm.to_bytes(spec))
     assert isinstance(r, P.SpectrumPanels) and r.timestamp == ts
     assert [p.title for p in r.panels] == ["스펙트럼", "포락선 스펙트럼"]

@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "sensor_id": "motor01",
+  "timestamp": "2026-09-25T05:20:14.400Z",
+  "window_start": "2026-09-25T05:20:13.400Z",
+  "anomaly_score": 0.7518,
+  "health_index": 24,
+  "state": "CRITICAL",
+  "model_version": "v1"
+}

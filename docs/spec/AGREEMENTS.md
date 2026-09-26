@@ -2,8 +2,8 @@
 
 > 목적: 이 Component가 다른 Component·Shared와 주고받는 것(MQTT Topic과 Payload, DB 스키마와 적용 방식, 실행 조건, 관찰 지점)을 정한다.
 > 읽어야 할 때: MQTT 발행·구독, DB 스키마, Docker 실행 조건, Dashboard 관찰 지점을 구현하거나 바꿀 때. 다른 Component가 이 Component와 연동할 때.
-> 지위(조율 C-04, `DECISIONS.md` D-04): Shared에 **확정**된 Interface(Sensor Vibration, Product Created, Vision Result, Conveyor Control, Line Status)와 CONVENTIONS는 Shared가 원본이고 이 파일은 Operations의 해석만 적는다. **Alarm Event**는 이 파일이 생산자 확정본이며 별도 subagent가 Shared DOCUMENT_CHANGE로 올린다. **PdM Result·PdM Spectrum**은 생산자(predictive-maintenance) spec과 Shared 확정본에 맞추며, 이 파일은 Operations가 기대는 가정을 적는다. 불일치가 생기면 조율 agent가 맞추고 OPS-10(`00-overview.md` 6절)에서 반영한다.
-> 참고한 Shared: `dltndn-personal-project/smart-factory-shared-repository` `main@d0c997c97129141d9853a42ce6e0d1f8f7309ae9`의 `docs/ARCHITECTURE.md`, `docs/INTERFACES.md`, `docs/CONVENTIONS.md`(원격 Contents API, 2026-09-27). PdM 기준: predictive-maintenance `main@db9b7e7` `docs/ARCHITECTURE.md` 6.2절. simulator 기준: factory-simulator `docs/spec/AGREEMENTS.md`(SIM A-xx), `docs/spec/05-mqtt.md`.
+> 지위(조율 C-04·C-05, `DECISIONS.md` D-04·D-48): 이 Component의 `contract_ref`는 Shared `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`다(OPS-10, 2026-09-27 채택). 그 commit의 INTERFACES에 **확정**된 Interface(Sensor Vibration, Product Created, Vision Result, Conveyor Control, Line Status, PdM Result, PdM Spectrum, Alarm Event)와 CONVENTIONS는 Shared가 원본이고 이 파일은 Operations의 해석만 적는다. **Alarm Event**는 Operations가 생산자이고 A-02가 Shared 확정본과 같다(Shared PR #7). **PdM Result·PdM Spectrum**은 생산자 predictive-maintenance가 Shared PR #7로 확정했고 A-05·A-06은 Operations가 기대는 의미와 해석을 적는다.
+> 계약 기준 Shared: `dltndn-personal-project/smart-factory-shared-repository` `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`(`contract_ref`)의 `docs/INTERFACES.md`, `docs/CONVENTIONS.md`. spec 작성 때 참고한 Shared: `main@d0c997c97129141d9853a42ce6e0d1f8f7309ae9`의 `docs/ARCHITECTURE.md`, `docs/INTERFACES.md`, `docs/CONVENTIONS.md`(원격 Contents API, 2026-09-27). PdM 기준: predictive-maintenance `main@db9b7e7` `docs/ARCHITECTURE.md` 6.2절. simulator 기준: factory-simulator `docs/spec/AGREEMENTS.md`(SIM A-xx), `docs/spec/05-mqtt.md`.
 
 항목 형식: **결정**, **근거**, **Shared 현재**, **바꿀 것**, **맞출 Component**.
 
@@ -11,12 +11,12 @@
 
 | ID | 항목 | 방향 | 맞출 Component |
 |---|---|---|---|
-| A-01 | Topic·QoS·retain 목록 | 구독·발행 | Shared |
-| A-02 | Alarm Event (생산자 확정본) | 발행 | Shared, integration |
+| A-01 | Topic·QoS·retain 목록 | 구독·발행 | 없음 (Shared `cb6dc3c`와 같음) |
+| A-02 | Alarm Event (생산자 확정본) | 발행 | integration |
 | A-03 | Conveyor Control 발행 규칙 | 발행 | 없음 (simulator 현재 동작과 일치) |
 | A-04 | Line Status 해석 | 구독 | 없음 |
-| A-05 | PdM Result에 대한 의존 | 구독 | predictive-maintenance, Shared |
-| A-06 | PdM Spectrum에 대한 의존(표시 전용) | 구독 | predictive-maintenance, Shared |
+| A-05 | PdM Result에 대한 의존 | 구독 | 없음 (Shared `cb6dc3c` 확정) |
+| A-06 | PdM Spectrum에 대한 의존(표시 전용) | 구독 | 없음 (Shared `cb6dc3c` 확정) |
 | A-07 | Product Created·Vision Result 해석 | 구독 | 없음 |
 | A-08 | DB 스키마와 적용 방식, 검증 조회 | 제공 | integration |
 | A-09 | 실행 조건 | 제공 | integration |
@@ -36,21 +36,21 @@ factory-simulator에 바라는 변경은 없다(조율 C-00, C-15).
 | Product Created | `factory/product/created` | 구독 | 1 | false | Shared 확정 |
 | Line Status | `factory/line/status` | 구독 | 1 | true | Shared 확정 |
 | Vision Result | `factory/vision/result` | 구독 | 1 | false | Shared 확정 |
-| PdM Result | `factory/pdm/result` | 구독 | 1 | false | 생산자 PdM (A-05) |
-| PdM Spectrum | `factory/pdm/spectrum` | 구독 | 0 | false | 생산자 PdM (A-06, 조율 C-12) |
+| PdM Result | `factory/pdm/result` | 구독 | 1 | false | Shared 확정 (A-05) |
+| PdM Spectrum | `factory/pdm/spectrum` | 구독 | 0 | false | Shared 확정 (A-06, 조율 C-12) |
 | Conveyor Control | `factory/control/conveyor` | 발행 | 1 | false | Shared 확정 (A-03) |
-| Alarm Event | `factory/alarm/event` | 발행 | 1 | false | 이 파일 확정본 (A-02) |
+| Alarm Event | `factory/alarm/event` | 발행 | 1 | false | Shared 확정 (A-02) |
 
 - 접두사 `factory`는 설정(`TOPIC_PREFIX`)으로 바꿀 수 있지만 기본값을 쓴다.
 - Operations MQTT 연결: MQTT 3.1.1, client_id `factory-operations`, clean session, keepalive 30초, 인증·TLS 없음. LWT 없음.
 
 **근거**: Shared INTERFACES Interface 목록, ARCHITECTURE 5.1, 조율 C-12·C-15.
 
-**Shared 현재**: Alarm Event 행의 소비자·QoS·retain·상태가 "미정". PdM Spectrum 행이 없다.
+**Shared 현재**(`cb6dc3c`): 위 표와 같다. Alarm Event·PdM Result·PdM Spectrum 행이 Shared PR #7로 확정되었다.
 
-**바꿀 것**: Alarm Event 행을 A-02로 채운다. PdM Spectrum 행은 PdM Result와 같은 DOCUMENT_CHANGE로 predictive-maintenance가 추가한다(조율 C-12). ARCHITECTURE 5.1 Topic 그림에 `pdm/spectrum`을 넣는 것도 그때 함께 한다.
+**바꿀 것**: 없음.
 
-**맞출 Component**: Shared(Alarm Event 행).
+**맞출 Component**: 없음.
 
 ## A-02 Alarm Event (생산자 확정본)
 
@@ -99,9 +99,9 @@ factory-simulator에 바라는 변경은 없다(조율 C-00, C-15).
 
 **근거**: Shared ARCHITECTURE 4.4 Alarm Management(Warning·Critical 필수, Alarm History DB 저장), 17절(PdM: State Event, Operations: Alarm Management), 조율 C-04·C-15. 규칙 세부는 `03-control.md` 4절, 결정 이유는 `DECISIONS.md` D-21·D-22.
 
-**Shared 현재**: INTERFACES 목록에 Topic과 생산자만 있고 소비자·QoS·retain·Payload가 "미정".
+**Shared 현재**(`cb6dc3c`): INTERFACES "Alarm Event" 절로 확정. 예시 JSON과 필드가 위와 같다(`tests/fixtures/payloads/shared_alarm_event.json`, `test_build_alarm_matches_shared_example`).
 
-**바꿀 것**: INTERFACES에 "Alarm Event" 절을 위 표·예시·필드표·발행 조건·순서로 추가하고, 목록 행을 소비자 "없음(integration 검증에서 관찰)", QoS 1, retain false, 상태 확정으로 바꾼다. 첫 줄 "확정" 목록에 Alarm Event를 넣는다.
+**바꿀 것**: 없음.
 
 **맞출 Component**: integration(E2E-3 단계 4에서 이 Topic 관찰, 계약 검사 C-01·C-02·C-06에 Alarm Event 추가).
 
@@ -139,45 +139,45 @@ factory-simulator에 바라는 변경은 없다(조율 C-00, C-15).
 
 ## A-05 PdM Result에 대한 의존
 
-**결정**: 생산자 predictive-maintenance의 spec과 Shared 확정본에 맞춘다. 확정 전에는 PdM 아키텍처 6.2절 초안(조율 C-15)을 기준으로 구현한다. Operations가 기대는 것:
+**결정**: Shared `cb6dc3c` INTERFACES "PdM Result" 확정본을 따른다(형식 검사는 `02-mqtt.md` 3.6절). 확정본은 아래 기대를 모두 명시한다. Operations가 기대는 것:
 
 | 항목 | 기대 | Operations에서의 용도 |
 |---|---|---|
 | Topic·QoS·retain | `factory/pdm/result`, QoS 1, **retain false** | retained 옛 `CRITICAL`이 Line Status보다 먼저 도착하면 기동 직후 불필요한 STOP이 나갈 수 있다 |
-| 필드 | `schema_version`(1), `sensor_id`, `timestamp`, `anomaly_score`(number), `health_index`(int 0~100), `state`(대문자 4값). 선택: `window_start`, `model_version` | 검사 대상은 이 필드뿐이다. 다른 필드는 무시한다 |
+| 필드 | `schema_version`(1), `sensor_id`, `timestamp`, `window_start`, `anomaly_score`(number 0~1), `health_index`(int 0~100), `state`(대문자 4값). 선택: `model_version` | 검사 대상은 이 필드뿐이다. 다른 필드는 무시한다 |
 | `timestamp` 의미 | 분석 윈도우의 끝. **Simulator timestamp에서만 계산**(PdM 호스트 시계 아님) | 재가동 기준 시각(Line Status `timestamp`)과 같은 시계로 비교한다. 결합·상관분석의 시간 축 |
 | 정지 중 | `rpm == 0` 윈도우는 발행하지 않는다. 재가동 뒤 첫 결과는 재가동 뒤 chunk만으로 채운 윈도우(가동 chunk 10개)에서 낸다 | 재가동 전 결과와 뒤 결과를 `timestamp > 재가동 기준 시각`으로 가른다 |
 | 발행 주기 | hop마다(0.5초) | 2초(4 hop) 넘게 결과가 없으면 "마지막 판정"으로 표시한다(`06-dashboard.md` 4절) |
 | 센서 | 결과는 센서마다, `sensor_id`로 구분 | 라인 센서(Line Status `sensor_id`) 결과만 Interlock에 쓴다 |
-| State 평활화 | 기본 끔(PdM 아키텍처 5.5절) | Operations는 떨림을 억제하지 않는다. 켜면 Alarm이 덜 흔들린다 |
+| State 평활화 | 없음(State는 윈도우 하나의 `health_index`로만 정함) | Operations는 떨림을 억제하지 않는다 |
 
 - Operations는 Health Index로 State를 다시 계산하지 않는다. `state == CRITICAL`이 곧 Interlock 조건이다.
-- 확정본이 위 기대와 다르면(특히 `timestamp` 의미, 정지 중 동작, retain) 재가동 기준 시각 규칙과 stale 규칙이 영향을 받는다. 조율 agent가 어느 쪽을 맞출지 정한다.
+- 확정본의 의미(`timestamp` = 윈도우 끝, Simulator 시계, retain false, `rpm == 0` 미발행, 재가동 뒤 첫 결과 `timestamp` = 재가동 chunk + 1초)는 위 기대와 같다(OPS-10에서 확인). 앞으로 이것이 바뀌면 재가동 기준 시각 규칙과 stale 규칙이 영향을 받으므로 조율 agent가 어느 쪽을 맞출지 정한다.
 
-**근거**: Shared ARCHITECTURE 4.2 Output, 4.4 Interlock, 조율 C-04·C-13·C-15, PdM 아키텍처 5.2·6.2절.
+**근거**: Shared `cb6dc3c` INTERFACES PdM Result, ARCHITECTURE 4.2 Output, 4.4 Interlock, 조율 C-04·C-13·C-15.
 
-**Shared 현재**: INTERFACES에 Topic과 생산자·소비자만 있고 나머지 "미정".
+**Shared 현재**: 확정(Shared PR #7, `cb6dc3c`).
 
-**바꿀 것**: predictive-maintenance가 Shared DOCUMENT_CHANGE로 확정한다. 위 표의 기대(특히 retain false, `timestamp` = Simulator 시각에서 계산한 윈도우 끝, `rpm == 0` 미발행, 재가동 뒤 첫 결과의 윈도우)를 확정본에 명시해 줄 것을 요청한다.
+**바꿀 것**: 없음.
 
-**맞출 Component**: predictive-maintenance(위 기대를 spec·Shared 제안에 명시), Shared.
+**맞출 Component**: 없음.
 
 ## A-06 PdM Spectrum에 대한 의존 (표시 전용)
 
-**결정**: `factory/pdm/spectrum`(QoS 0, retain false, 약 1초 주기)을 구독해 Dashboard FFT Spectrum 칸에만 쓴다. 필드 구성은 PdM spec이 정한다. Operations는 이름에 느슨하게 의존한다:
+**결정**: `factory/pdm/spectrum`(QoS 0, retain false, 약 1초 주기)을 구독해 Dashboard FFT Spectrum 칸에만 쓴다. 형식은 Shared `cb6dc3c` INTERFACES "PdM Spectrum" 확정본이다(검사는 `02-mqtt.md` 3.7절):
 
-- 필수로 보는 것: `schema_version`(1), `sensor_id`, `timestamp`(CONVENTIONS 형식). 메시지 256 KiB 이하.
-- 계열: 최상위의 숫자 배열(길이 2~4096) 필드는 모두 그래프 계열이다. 이름에 `envelope`가 들어가면 포락선 패널, 아니면 원 스펙트럼 패널.
-- 주파수 축: `freq_step_hz`(포락선은 `envelope_freq_step_hz`가 있으면 그것), 시작 `freq_start_hz`(없으면 0). 없으면 bin 번호로 그린다.
+- 필수: `schema_version`(1), `sensor_id`, `timestamp`, `window_start`, `rpm`, `freq_step_hz`(> 0), `rot_hz`, `bpfo_hz`, `bpfi_hz`, `spectrum_x/y/z`, `envelope_x/y/z`. 배열 여섯 개는 길이 `floor(500 / freq_step_hz) + 1`, 원소는 유한한 0 이상. 메시지 256 KiB 이하.
+- 패널: "스펙트럼"(`spectrum_x/y/z`)과 "포락선 스펙트럼"(`envelope_x/y/z`), 주파수 축은 `k × freq_step_hz` Hz.
+- 형식을 어긴 메시지는 표시하지 않고 로그로 남긴다(직전 표시 유지).
 - Interlock·Alarm·DB 기록·상관분석에 쓰지 않는다. 받지 못하면 화면에 "PdM 스펙트럼 없음"만 나온다.
 
-**근거**: Shared ARCHITECTURE 4.4 Dashboard(FFT Spectrum), 17절(FFT는 PdM), 조율 C-12. 해석 규칙은 `02-mqtt.md` 3.7절.
+**근거**: Shared `cb6dc3c` INTERFACES PdM Spectrum, ARCHITECTURE 4.4 Dashboard(FFT Spectrum), 17절(FFT는 PdM), 조율 C-12.
 
-**Shared 현재**: 없음.
+**Shared 현재**: 확정(Shared PR #7, `cb6dc3c`).
 
-**바꿀 것**: predictive-maintenance가 PdM Result와 같은 DOCUMENT_CHANGE로 추가한다(조율 C-12).
+**바꿀 것**: 없음.
 
-**맞출 Component**: predictive-maintenance(권장: 원 스펙트럼 `spectrum_<축>`, 포락선은 이름에 `envelope`, 간격 `freq_step_hz`·필요하면 `envelope_freq_step_hz`. 이 권장과 다르면 그래프 묶음이 달라질 뿐 수신은 된다).
+**맞출 Component**: 없음.
 
 ## A-07 Product Created·Vision Result 해석
 
@@ -304,9 +304,9 @@ services:
 
 | `docs/ARCHITECTURE.md` 11.2절 | 해결 |
 |---|---|
-| O-1 PdM Result Payload·QoS·주기·정지 중 동작 | A-05 (생산자 확정 대기, 가정 명시) |
-| O-2 FFT Spectrum 공급 | A-06 (조율 C-12: `factory/pdm/spectrum`) |
-| O-3 Alarm Event Shared 등록 | A-02 (확정본. Shared DOCUMENT_CHANGE는 별도 subagent) |
+| O-1 PdM Result Payload·QoS·주기·정지 중 동작 | A-05 (Shared `cb6dc3c` 확정) |
+| O-2 FFT Spectrum 공급 | A-06 (조율 C-12: `factory/pdm/spectrum`, Shared `cb6dc3c` 확정) |
+| O-3 Alarm Event Shared 등록 | A-02 (Shared PR #7로 등록, `cb6dc3c`) |
 | O-4 DB 이미지, DDL 적용, 포트·환경 변수 | A-08, A-09 |
 | O-5 Dashboard 5초 측정 방법 | A-10, `08-verification.md` 4.1절 |
 

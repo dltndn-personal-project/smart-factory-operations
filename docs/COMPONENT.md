@@ -49,8 +49,8 @@ task `scope` glob의 기준이다. 경로별 파일은 해당 task가 만든다(
 
 ## 외부 의존과 계약
 
-- 교차 Component 항목(MQTT Topic·Payload·QoS, DB 스키마와 적용 방식, 실행 조건, 관찰 지점)은 `docs/spec/AGREEMENTS.md`가 구현 기준이다. Shared에 확정된 Interface(Sensor Vibration, Product Created, Vision Result, Conveyor Control, Line Status)와 CONVENTIONS는 Shared가 원본이다(참고한 Shared commit `d0c997c97129141d9853a42ce6e0d1f8f7309ae9`). Alarm Event는 `AGREEMENTS.md` A-02가 생산자 확정본이고, PdM Result·PdM Spectrum은 생산자(predictive-maintenance) 확정 전 가정(A-05·A-06)이다.
-- `SHARED_CONFIG.json`의 `contract_ref`는 PdM Result·PdM Spectrum·Alarm Event가 Shared에 확정된 뒤 OPS-10이 채택한다(조율 C-05, spec D-04). 그 전에는 task의 `contract` 필드를 쓰지 않는다. Shared 문서를 참고로 읽을 때는 `agent/core/process/90-shared.md` 2절처럼 원격 commit을 고정한다.
+- 교차 Component 항목(MQTT Topic·Payload·QoS, DB 스키마와 적용 방식, 실행 조건, 관찰 지점)은 `docs/spec/AGREEMENTS.md`가 구현 기준이다. Shared에 확정된 Interface(Sensor Vibration, Product Created, Vision Result, Conveyor Control, Line Status, PdM Result, PdM Spectrum, Alarm Event)와 CONVENTIONS는 Shared가 원본이다. 계약 기준 Shared commit(`contract_ref`)은 `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`이다(OPS-10). Alarm Event는 이 Component가 생산자이고 `AGREEMENTS.md` A-02가 Shared 확정본과 같다. PdM Result·PdM Spectrum의 Operations 해석은 A-05·A-06이다.
+- `SHARED_CONFIG.json`의 `contract_ref`는 Shared PR #7(PdM Result·PdM Spectrum·Alarm Event 확정)의 merge commit `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`이다(OPS-10, 조율 C-05, spec D-04·D-48). task의 `contract` 문서는 `agent/core/process/90-shared.md` 1절로 이 commit을 지정해 읽는다.
 - 그 외 의존: MQTT Broker(Mosquitto 2.1.2, `eclipse-mosquitto:2.1.2-alpine`), PostgreSQL 17 + TimescaleDB 2.30.1(`timescale/timescaledb:2.30.1-pg17`), Image Storage named volume(읽기 전용), Python 3.12와 FastAPI·uvicorn·paho-mqtt·psycopg·numpy·scipy·pydantic·PyYAML(버전은 `docs/spec/07-runtime.md` 7절), Docker(연동 테스트·smoke·실행), 맥북 Chrome(화면 확인 기준 브라우저). 외부 CDN·Node 빌드는 쓰지 않는다.
 
 ## 실행·검증 환경

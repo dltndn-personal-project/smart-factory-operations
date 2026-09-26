@@ -109,28 +109,39 @@ Shared는 `defect_type`·`confidence`·`bbox`·`gradcam_path`의 **키**를 필�
 
 ### 3.6 PdM Result
 
-생산자는 predictive-maintenance다. Shared 확정 전에는 PdM 아키텍처 6.2절 초안(조율 C-15)에 맞춘다(`AGREEMENTS.md` A-05). Operations가 쓰는 필드만 검사한다.
+생산자는 predictive-maintenance다. 형식의 원본은 Shared INTERFACES "PdM Result"(`contract_ref` `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`)이고 Operations의 해석은 `AGREEMENTS.md` A-05다. 아래 순서로 검사한다.
 
 | 필드 | 검사 / 선택 |
 |---|---|
 | `sensor_id` | `sensor_id` |
 | `timestamp` | `ts`. 분석 윈도우의 끝 |
-| `anomaly_score` | `number` (범위는 검사하지 않고 그대로 저장·표시) |
+| `window_start` | `ts`. 윈도우 첫 chunk의 `timestamp` |
+| `anomaly_score` | `number` 0 이상 1 이하 |
 | `health_index` | `int` 0~100 |
 | `state` | `NORMAL` \| `CAUTION` \| `WARNING` \| `CRITICAL` (그 밖의 값은 `invalid_field:state`) |
-| `window_start` | 선택. `ts` |
 | `model_version` | 선택. 1~64자 문자열 |
 
-### 3.7 PdM Spectrum (표시 전용, 느슨한 해석)
+- Operations는 `health_index`로 `state`를 다시 계산하지 않고 `state`를 그대로 쓴다(`state`와 `health_index` 구간의 일치 검사는 integration이 한다).
 
-필드 구성은 PdM spec이 정한다(조율 C-12). Operations는 이름에 느슨하게 의존하고 **화면 표시에만** 쓴다(`AGREEMENTS.md` A-06).
+### 3.7 PdM Spectrum (표시 전용)
 
-- 메시지 크기가 256 KiB를 넘으면 `too_large`.
-- 검사: `sensor_id`(`sensor_id`), `timestamp`(`ts`). 나머지는 아래 규칙으로 해석한다.
-- **계열**: 최상위 키 중 값이 `number` 배열(길이 2~4096)인 것. 키 이름에 `envelope`가 들어 있으면 "포락선 스펙트럼" 패널, 아니면 "스펙트럼" 패널에 넣는다. 한 패널 안의 계열 순서는 키 이름 오름차순.
-- **주파수 축**: 스펙트럼 패널은 `freq_step_hz`(양수 `number`), 포락선 패널은 `envelope_freq_step_hz`가 있으면 그것, 없으면 `freq_step_hz`. 시작 주파수는 같은 방식으로 `freq_start_hz`/`envelope_freq_start_hz`, 없으면 0. 간격을 모르면 `x_step = 1`, 단위 `bin`으로 둔다.
-- 계열이 하나도 없으면 `no_series`로 거부한다.
-- 결과: `SpectrumPanels(sensor_id, timestamp, window_start|null, panels=[{title, x_start, x_step, x_unit, series=[{name, values(float32)}]}])`. 계열 값은 소수 4자리로 반올림해 화면에 보낸다(06 3절).
+형식의 원본은 Shared INTERFACES "PdM Spectrum"(`cb6dc3c`)이다. **화면 표시에만** 쓴다(`AGREEMENTS.md` A-06). 모든 필드가 필수이고 아래 순서로 검사한다.
+
+- 메시지 크기가 256 KiB를 넘으면 JSON을 읽기 전에 `too_large`(확정본 크기는 약 21 KB).
+
+| 필드 | 검사 |
+|---|---|
+| `sensor_id` | `sensor_id` |
+| `timestamp` | `ts`. 같은 윈도우의 PdM Result와 같은 값 |
+| `window_start` | `ts` |
+| `rpm` | `number` |
+| `freq_step_hz` | `number` > 0 |
+| `rot_hz`, `bpfo_hz`, `bpfi_hz` | `number` |
+| `spectrum_x`, `spectrum_y`, `spectrum_z`, `envelope_x`, `envelope_y`, `envelope_z` | `number` 배열. 길이가 모두 `floor(500 / freq_step_hz) + 1`(기본 501)이고 원소는 유한한 0 이상 |
+
+- 하나라도 어기면 거부하고 화면은 직전 스펙트럼을 유지한다(Shared 오류 표현).
+- 결과: `SpectrumPanels(sensor_id, timestamp, window_start, panels, rpm, rot_hz, bpfo_hz, bpfi_hz)`. `panels`는 두 개다: "스펙트럼"(`spectrum_x/y/z`)과 "포락선 스펙트럼"(`envelope_x/y/z`), 각 `{title, x_start: 0, x_step: freq_step_hz, x_unit: "Hz", series=[{name, values(float32)}]}`. 계열 값은 소수 4자리로 반올림해 화면에 보낸다(06 3절).
+- `rot_hz`·`bpfo_hz`·`bpfi_hz`는 결과에 담기만 한다. 화면 표시선은 현재 범위에 없다.
 
 ## 4. 발행
 
