@@ -24,7 +24,7 @@ steps:
     화면을 확인하고 정리
 - do: docs/COMPONENT.md 실행·검증 환경 절을 실제 명령으로, spec 07 구현 메모
   check: A5
-  done: false
+  done: true
 attempts: {}
 evidence: {}
-next_action: step 6 COMPONENT.md 실행 절, spec 07 메모
+next_action: agent.py verify
