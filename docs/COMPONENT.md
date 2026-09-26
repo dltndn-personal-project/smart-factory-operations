@@ -55,9 +55,18 @@ task `scope` glob의 기준이다. 경로별 파일은 해당 task가 만든다(
 
 ## 실행·검증 환경
 
-실행 방법의 원본은 `docs/spec/07-runtime.md`(설정 키·환경 변수 1절, 로컬 실행 2절, Dockerfile 3절, 개발용 compose 4절, 가짜 입력 5절, Makefile 6절)다. 구현이 끝나면 OPS-9B가 이 절을 실제 실행 방법으로 갱신한다.
+실행 방법의 원본은 `docs/spec/07-runtime.md`(설정 키·환경 변수 1절, 로컬 실행 2절, Dockerfile 3절, 개발용 compose 4절, 가짜 입력 5절, Makefile 6절)다.
 
-- 로컬 실행(계획): `make venv` → `docker compose up -d mosquitto db` → `.venv/bin/python -m factory_operations serve`(http://localhost:8080) → `.venv/bin/python scripts/fake_feed.py`.
+- 화면 시연(개발용 compose + 가짜 입력, 사람 확인 HUM-1도 이것으로 한다):
+  ```sh
+  make venv
+  docker compose up -d --build     # mosquitto(127.0.0.1:1883), db(127.0.0.1:5432), image-seed, factory-operations(127.0.0.1:8080)
+  make feed                        # Simulator·PdM·Vision 흉내. Ctrl-C로 끝내면 Line Status offline
+  # 브라우저: http://localhost:8080 (렌더링 시간은 http://localhost:8080/?debug=1)
+  docker compose down -v           # 완전 초기화(DB·예시 이미지 볼륨 삭제)
+  ```
+  포트가 겹치면(예: simulator 단독 compose의 1883) `FOPS_HTTP_PORT`·`FOPS_MQTT_PORT`·`FOPS_DB_PORT`를 바꾸고 `make feed` 대신 `.venv/bin/python scripts/fake_feed.py --mqtt mqtt://127.0.0.1:<FOPS_MQTT_PORT>`. 시나리오를 빨리 보려면 `--speed 10`.
+- 로컬 실행(Docker 없이 앱만): `make venv` → `docker compose up -d mosquitto db` → `make run`(http://localhost:8080) → `make feed`. 이미지는 `IMAGE_ROOT`(기본 `./data`)에서 읽으므로 `mkdir -p data/products && cp tests/fixtures/images/*.jpg data/products/`로 넣는다.
 - 컨테이너: 저장소 루트 `Dockerfile`, 컨테이너 포트 8080, 필수 환경 변수 `MQTT_URL`, `DATABASE_URL`, `IMAGE_ROOT`. 기동 확인은 `/healthz`(프로세스), 준비 확인은 `/readyz`(MQTT 연결 + DB 스키마 확인)다(`docs/spec/AGREEMENTS.md` A-09).
 - 필요한 도구: Python 3.12(venv·pip), Docker Desktop, GNU Make, `gh`(로그인). 호스트의 `mosquitto`·`psql`은 쓰지 않는다(컨테이너 안의 것을 쓴다).
-- 공통 검증 명령은 `agent/config.yaml`의 `verify`에 둔다. 영역별로 추가할 명령(`make test`, `make docker-test`, `make smoke`)과 시점은 `docs/spec/08-verification.md` 5절이다.
+- 검증: `make test`(단위), `make docker-test`(Mosquitto·TimescaleDB 연동), `make smoke`(이미지 빌드와 컨테이너 흐름). 공통 검증 명령은 `agent/config.yaml`의 `verify`에 있다(`docs/spec/08-verification.md` 5절).
