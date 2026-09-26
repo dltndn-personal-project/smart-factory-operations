@@ -24,10 +24,10 @@ steps:
   note: A3·A4 외에 readyz·운영자 STOP 테스트 2개 추가
 - do: 'tests/unit/test_mqtt_client.py: 가짜 paho client로 publish 끊김·on_message·overflow'
   check: A5
-  done: false
+  done: true
 - do: make test, make docker-test, spec 01·02 구현 메모
   check: A1, A2
   done: false
 attempts: {}
 evidence: {}
-next_action: step 6 test_mqtt_client
+next_action: step 7 make test, make docker-test, spec 메모
