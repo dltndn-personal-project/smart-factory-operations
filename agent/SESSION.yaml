@@ -1,8 +1,23 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-6
+phase: plan
+base_commit: d1abe31886829cd62248349e726e183f047225d0
+started_at: '2026-09-26T20:49:12Z'
+steps:
+  - do: tests/fixtures/images/make_images.py(표준 라이브러리 PNG → sips JPEG, 640×640, 회색 4장·사선 4장)와 결과 P-00000001~8.jpg (07 5절)
+    check: A4
+    done: false
+  - do: web/snapshot.py build_snapshot(view, now_wall, now_mono, cfg) — 06 3절 JSON·필드 규칙, 4절 stale, 진동 min/max 솎기, 스펙트럼 소수 4자리, DB 요약·상관분석 JSON 변환
+    check: A5, python -c "import factory_operations.web.snapshot"
+    done: false
+  - do: web/images.py — rel_path(products|gradcam) 검사, IMAGE_ROOT 아래 파일, 확장자로 Content-Type
+    check: A5
+    done: false
+  - do: web/api.py — /readyz, /api/snapshot(no-store), /api/images, /api/conveyor(큐·future·2초), GET /·/static, 오류 본문, 자리표시 static/index.html
+    check: python -c "import factory_operations.web.api"
+    done: false
+  - do: tests/unit/test_snapshot.py, tests/unit/test_api.py(TestClient, 가짜 워커), make test
+    check: A1, A2, A3, A5
+    done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: step 1 make_images.py 작성
