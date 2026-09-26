@@ -13,10 +13,11 @@ steps:
   note: '첫 실행에서 준비 Line Status가 측정 도구에 늦게 도착해 표본 13개로 잡힘 → 준비 메시지를 측정 도구가 받은 뒤 측정 시작. 통과 실행: max D 3.467초(vision), r_max 0.060초'
 - do: 'tests/docker/test_broker_restart.py: 자기 broker 컨테이너 docker restart → /readyz 503 → 15초 안 200 → PdM Result 기록'
   check: A4
-  done: false
+  done: true
+  note: 재시작 뒤 /readyz 200까지 1.12초(첫 실행)
 - do: make docker-test 전체 시간 확인(300초 이하), make test
   check: A3
   done: false
 attempts: {}
 evidence: {}
-next_action: step 3 test_broker_restart.py
+next_action: step 4 전체 시간
