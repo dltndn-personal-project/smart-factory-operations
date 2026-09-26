@@ -19,7 +19,7 @@ steps:
   done: true
 - do: tests/unit/test_state.py·test_line.py·test_join.py, make test
   check: A1
-  done: false
+  done: true
 attempts: {}
 evidence: {}
-next_action: 'step 4: tests/unit/test_state.py·test_line.py·test_join.py, make test'
+next_action: agent.py verify 실행
