@@ -1,8 +1,29 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-7A
+phase: plan
+base_commit: 2583030570aee9369c99b0127f27139153a8552f
+started_at: '2026-09-26T20:58:47Z'
+steps:
+- do: 'mqtt/client.py: paho client(02 1절 기동, on_connect 구독 한 번, on_message → Inbound put_nowait·가득 차면 카운터와 queue_overflow 로그, publish는 끊김이면 False·반환 코드 확인), mqtt_connected를 StateStore에'
+  check: A5, A7
+  done: false
+- do: 'domain/worker.py에 워커 스레드 루프(Worker: get(timeout=0.1) → Processor.handle, 0.1초마다 tick, 종료 표시·join)'
+  check: make test
+  done: false
+- do: app.py lifespan 조립(StateStore → DbWriter(요약·상관분석 콜백) → 워커 → MQTT → HTTP create_app), 종료 역순·제한 시간, __main__ serve
+  check: A6, A7
+  done: false
+- do: 'tests/docker/conftest.py: mqtt_broker(빈 포트 고정, D-43), running_app(uvicorn 스레드, /readyz 200까지 15초, broker·DB 주소 인자), harness(SUBACK·PUBACK 대기), wait_snapshot'
+  check: make docker-test 기존 테스트 통과
+  done: false
+- do: 'tests/docker/test_app_flow.py: test_rows_and_joins, test_stop_result_recorded, test_operator_start_published'
+  check: A3, A4
+  done: false
+- do: 'tests/unit/test_mqtt_client.py: 가짜 paho client로 publish 끊김·on_message·overflow'
+  check: A5
+  done: false
+- do: make test, make docker-test, spec 01·02 구현 메모
+  check: A1, A2
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: step 1 mqtt/client.py 작성
