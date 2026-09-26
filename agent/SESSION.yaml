@@ -1,8 +1,30 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-2
+phase: plan
+base_commit: c0809885ca77dee73347cd3caf313ece3e3af8ca
+started_at: '2026-09-26T18:59:11Z'
+steps:
+- do: 'fixture 준비: tests/fixtures/payloads/ Shared d0c997c 예시 5개(Sensor는 스칼라 + seed
+    고정 배열), PdM db9b7e7 6.2절 예시, 스펙트럼 예시 3종, SOURCES.md'
+  check: A9
+  done: false
+- do: 'mqtt/topics.py: 접두사로 Topic 8개, 수신 Topic → 입력 종류와 + 자리 값, tests/unit/test_topics.py'
+  check: A8
+  done: false
+- do: mqtt/payloads.py 공통 규칙(3.1절)과 rel_path
+  check: A3, A7
+  done: false
+- do: 파서 6종과 결과 dataclass, Rejected(reason), 스펙트럼 패널
+  check: A2, A4, A5
+  done: false
+- do: build_conveyor, build_alarm(Alarm dataclass), 직렬화
+  check: A6
+  done: false
+- do: 'tests/fixtures/payloads/pdm.py: PdM fixture 템플릿 기반 pdm_result·pdm_spectrum'
+  check: A10
+  done: false
+- do: tests/unit/test_payloads.py 작성, make test
+  check: A1
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(fixture)부터 수행
