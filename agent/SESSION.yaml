@@ -25,7 +25,9 @@ steps:
   done: true
 - do: tests/unit/test_payloads.py 작성, make test
   check: A1
-  done: false
+  done: true
+  note: last_command 하위 source·reason·error는 spec대로 길이 제한 없는 문자열. rel_path에 \·NUL
+    거부와 nulled를 02 3.1절에 추가
 attempts: {}
 evidence: {}
-next_action: 'step 7: tests/unit/test_payloads.py 작성, make test'
+next_action: agent.py verify 실행

@@ -303,6 +303,10 @@ def _c_str(lo: int, hi: int) -> Callable[[Any], Any]:
     return lambda v: v if isinstance(v, str) and lo <= len(v) <= hi else _BAD
 
 
+def _c_any_str(v: Any) -> Any:
+    return v if isinstance(v, str) else _BAD
+
+
 def _c_rel_path(directory: str) -> Callable[[Any], Any]:
     def check(v: Any) -> Any:
         p = rel_path(v, directory)
@@ -392,9 +396,9 @@ def _c_last_command(v: Any) -> Any:
         result=v["result"],
         command_id=f.opt("command_id", _c_str(1, 64)),
         command=f.opt("command", _c_enum(COMMANDS)),
-        source=f.opt("source", _c_str(1, 64)),
-        reason=f.opt("reason", _c_str(0, 200)),
-        error=f.opt("error", _c_str(0, 1000)),
+        source=f.opt("source", _c_any_str),
+        reason=f.opt("reason", _c_any_str),
+        error=f.opt("error", _c_any_str),
         received_at=f.opt("received_at", _c_ts),
     )
 
