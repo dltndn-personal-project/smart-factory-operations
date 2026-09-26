@@ -1,8 +1,19 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: BOOT-1
+phase: execute
+base_commit: ffb2c4c66749c26449b547cb0e805d485c0ca85e
+started_at: '2026-09-26T18:16:33Z'
+steps:
+- do: docs/COMPONENT.md의 미정 슬롯을 docs/spec(00·01·05·07·AGREEMENTS)을 근거로 채운다
+  check: A1
+  done: false
+- do: python3 agent/core/tools/validate.py를 실제로 실행해 통과를 확인하고 agent/config.yaml verify에
+    agent-files로 넣는다
+  check: A2
+  done: false
+- do: A3(manual)은 책임자 채팅 승인(조율 C-01·C-09, spec D-02)으로 갈음하고 plan PR 등록 단계에서 BOOT-1.yaml을
+    done으로 정리한다
+  check: A3 (pending 상태로 finish)
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: step 1 COMPONENT.md 채우기
