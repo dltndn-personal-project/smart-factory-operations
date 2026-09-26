@@ -14,10 +14,11 @@ steps:
     필터에 걸리게)
 - do: Makefile smoke 대상. make smoke 두 번 연속 실행해 정리 확인
   check: A1, A4, A5
-  done: false
+  done: true
+  note: make smoke 두 번 연속 통과(각 약 10초), A4·A5 확인
 - do: 'agent/config.yaml verify에 {name: smoke, run: "make smoke"} 추가, validate.py --remote'
   check: A6
   done: false
 attempts: {}
 evidence: {}
-next_action: step 3 Makefile smoke
+next_action: step 4 agent/config.yaml verify smoke
