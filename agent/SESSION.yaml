@@ -18,7 +18,7 @@ steps:
 - do: 'tests/docker/test_correlation_db.py: 합성 행을 DB에 넣고 DbWriter에 compute 주입, 짧은
     주기로 콜백 확인'
   check: A5, A6
-  done: false
+  done: true
 attempts: {}
 evidence: {}
-next_action: 'step 3: tests/docker/test_correlation_db.py'
+next_action: agent.py verify

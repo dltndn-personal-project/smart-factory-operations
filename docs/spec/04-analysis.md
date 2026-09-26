@@ -49,6 +49,12 @@
 4. `best`: pearson이 null이 아닌 lag 중 |pearson| 최대. 같으면 작은 lag. 모두 null이면 null.
 5. `bins`: 기본 lag의 표본을 캡처 시각 기준 `correlation.bin_s`(30초) 구간으로 나눈다. 구간 시작은 첫 검사 시각에서 `bin_s`씩. 구간마다 `start`(iso), `n_inspected`(그 구간의 모든 검사 수), `defect_rate`(그 구간 불량 수 / 검사 수), `mean_anomaly`(그 구간 유효 표본의 `x` 평균, 없으면 null). 최근 20구간만.
 
+구현(`domain/correlation.py`, OPS-5):
+- `compute(inspections, scores, cfg, clock=None)`. `inspections`는 `(timestamp, defect)`, `scores`는 `(timestamp, anomaly_score)` 튜플 목록(05 5절 조회 결과), `cfg`는 설정 전체(`correlation`·`join`). `computed_at`은 `clock.wall()`이고 기본은 시스템 시계다. DB 스레드에 넣을 때는 `functools.partial(compute, clock=...)`로 시계를 묶는다.
+- 시각은 정수 마이크로초로 비교한다(`max_gap_s` 경계가 정확히 포함된다).
+- 첫 검사와 마지막 검사 사이의 검사가 없는 구간(라인 정지 등)도 `bins`에 넣는다: `n_inspected` 0, `defect_rate`·`mean_anomaly` null. 화면이 시간 축의 빈 곳을 그대로 보이게 하기 위해서다.
+- `lag_s`·`default_lag_s`는 정수 값이면 int로 낸다(2.3절 예시).
+
 ### 2.3 결과 형식 (StateStore `correlation`, 화면 06 3절)
 
 ```json
