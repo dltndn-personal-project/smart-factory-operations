@@ -1,8 +1,22 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-3A
+phase: plan
+base_commit: 20f92be993ba3be4007f8462db4723ca145d871d
+started_at: '2026-09-26T19:15:32Z'
+steps:
+- do: 'domain/state.py: StateStore(01 3절 항목, Lock 하나, snapshot_view 얕은 복사), 센서별 PdM
+    이력(timestamp 순, history_s)'
+  check: A5
+  done: false
+- do: 'domain/line.py: LineTracker(1.1절 상태, 1.2절 갱신 규칙, fault_changes 보존, line_sensor_id,
+    update 반환값, view)'
+  check: A2, A3
+  done: false
+- do: 'domain/join.py: fault_level_at, health_index_at_time'
+  check: A4
+  done: false
+- do: tests/unit/test_state.py·test_line.py·test_join.py, make test
+  check: A1
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(state.py)부터 수행
