@@ -1,11 +1,11 @@
 task: OPS-9A
-phase: plan
+phase: execute
 base_commit: 81ff6b7476ed3a41eed2794ba3ff0dbffcce38d5
 started_at: '2026-09-26T21:48:02Z'
 steps:
 - do: Dockerfile(07 3절 그대로), .dockerignore. docker build로 빌드 확인(베이스 이미지 pull)
   check: A2, A3, docker build 성공
-  done: false
+  done: true
 - do: scripts/smoke.py — 08 3.7절 1~7번(빌드, network·volume·seed, Mosquitto·DB, Operations 컨테이너 /readyz 30초·/healthz
     commit, harness CRITICAL→Alarm·STOP 2초, 결과·검사·이미지, DB 행, 항상 정리·실패 시 로그 100줄)
   check: .venv/bin/python scripts/smoke.py 종료 코드 0, A5
@@ -18,4 +18,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 1 Dockerfile, .dockerignore 작성
+next_action: step 2 scripts/smoke.py 작성
