@@ -1,11 +1,11 @@
 task: OPS-4A
-phase: plan
+phase: execute
 base_commit: 2d6755360d9d88a9e1e6d68dc72fd10468188dc5
 started_at: '2026-09-26T20:28:52Z'
 steps:
 - do: 'db/schema.sql: spec 05 4절 DDL 그대로'
   check: A3
-  done: false
+  done: true
 - do: Makefile docker-test, tests/docker/conftest.py(빈 포트 고정, timescale_db session
     fixture 60초 대기, clean_db, id로만 삭제)
   check: A4
@@ -18,4 +18,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: phase execute 후 step 1(db/schema.sql)부터 수행
+next_action: 'step 2: Makefile docker-test와 tests/docker/conftest.py'
