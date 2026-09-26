@@ -10,7 +10,7 @@ steps:
 - do: scripts/fake_feed.py — 07 5절 Simulator·PdM·Vision 흉내. 메시지를 만드는 Feed(시간 주입)와 발행 루프 분리, 명령 적용, SIGINT/SIGTERM
     때 offline retain
   check: python scripts/fake_feed.py --help
-  done: false
+  done: true
 - do: tests/unit/test_fake_feed.py — importlib로 불러 파서·fixture 키·시나리오·이미지 경로·명령 적용 확인, make test
   check: A1, A2
   done: false
@@ -25,4 +25,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 2 scripts/fake_feed.py 작성
+next_action: step 3 tests/unit/test_fake_feed.py 작성
