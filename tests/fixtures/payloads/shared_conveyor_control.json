@@ -1,0 +1,7 @@
+{
+  "schema_version": 1,
+  "command": "STOP",
+  "command_id": "9f1c2e7a-4b1d-4e0a-9a51-0f3b2c7d8e11",
+  "timestamp": "2026-09-25T05:21:00.012Z",
+  "reason": "INTERLOCK_CRITICAL"
+}
