@@ -88,6 +88,19 @@
 - 진동 솎기는 표시용 downsampling이며 특징(RMS 등) 계산이 아니다(Shared 17절 경계).
 - 스냅숏 크기는 약 60~80 KB다(진동 3 × 1000값, 스펙트럼 최대 6 × 501값).
 
+구현(`web/snapshot.py`·`web/images.py`·`web/api.py`, OPS-6):
+- stale 판정은 소수 1자리로 반올림한 `age_s` 값과 임계값을 비교한다(화면 값과 판정이 어긋나지 않는다). 예: `pdm` `age_s` 2.0은 `LIVE`, 2.1은 `STALE`.
+- `line`이 `OFFLINE`이면 `age_s`·`received_at`은 마지막 online Line Status 기준이고, online을 받은 적이 없으면 나머지 필드가 모두 null이다.
+- `vibration`의 `timestamp`·`rpm`·`temperature`는 `seq`가 가장 큰 chunk, `received_at`·`age_s`는 가장 최근에 받은 chunk 값이다. 구간 경계는 `floor(i·n/b)`라 나누어떨어지지 않으면 구간 길이 차이가 1 이하다.
+- `pdm.history`는 StateStore 이력(최근 `timestamp`에서 `pdm.history_s` 안) 중 뒤 240개다.
+- `correlation.stale`은 항상 붙인다(`false`/`true`). `computed_at` 뒤 `3 × correlation.period_s`를 **넘으면** true.
+- 목록은 요약 순서(최신 먼저) 그대로 `dashboard.recent_*` 개수까지 자른다. `confidence`(DB `real`)는 소수 4자리로 반올림한다. DB 값(aware datetime, `uuid.UUID`, int 목록)은 여기서 JSON 값으로 바꾼다.
+- `counters`: StateStore 키 `("rejected", topic, reason)` → `rejected["<topic>:<reason>"]`, 첫 원소가 `queue_overflow`로 끝나는 키의 합 → `queue_overflow`.
+- `POST /api/conveyor`: 본문 검사(422)는 큐에 넣기 전에 한다. inbound 큐가 2초 동안 가득 차 있어도 `504 timeout`이다. 시간 초과면 future를 취소해 늦은 워커 결과를 버린다(발행 여부는 알 수 없음). 제한 시간은 `create_app(..., command_timeout_s=2.0)` 키워드(테스트가 줄인다).
+- `/api/images`: 형식 오류 400 `invalid_path`, 없음 404 `not_found`. 기호 링크가 `IMAGE_ROOT` 밖을 가리키면 404.
+- `create_app`은 `state`·`inbound_queue`·`clock`이 없으면 빈 StateStore, 아무도 읽지 않는 큐, 시스템 시계를 쓴다(조립 전 `make run`: 스냅숏 `NONE`, `/api/conveyor` 504).
+- 가득 찬 스냅숏(`test_full_snapshot_size`: PdM 이력 240, 진동 3 × 500 × 2, 스펙트럼 6 × 501, 목록 12·20·20, 상관분석 곡선 31·구간 20)은 약 88 KB다.
+
 ## 4. 오래된 판정(stale) 표시 규칙
 
 | 상황 | 판정 | 화면 |
