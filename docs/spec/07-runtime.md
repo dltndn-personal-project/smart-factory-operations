@@ -60,6 +60,7 @@ CMD ["python", "-m", "factory_operations", "serve"]
 - `.dockerignore`: `.git`, `.venv`, `data`, `tests`, `docs`, `agent`, `scripts`, `**/__pycache__`.
 - root로 실행한다. Image Storage는 읽기 전용 마운트라 쓰기 권한이 필요 없다.
 - 실행 명령은 이미지 기본 `CMD`다. integration은 명령을 바꾸지 않는다.
+- smoke(`scripts/smoke.py`, 08 3.7절, OPS-9A): 컨테이너 이름은 `factory-operations-fops-smoke-<hex8>-<seed|mqtt|db|app>`(조율의 Component 접두사 규칙과 08 3.7절 7번 정리 확인 필터 `fops-smoke-`를 함께 만족). 이미지 `factory-operations:smoke-<commit 12자리>`는 다음 검사가 쓰므로 지우지 않는다. commit마다 태그가 쌓이므로 필요하면 사람이 `docker image ls 'factory-operations'`로 보고 지운다. 한 번 실행은 빌드 캐시가 있으면 약 10초다.
 - 빌드는 인터넷이 필요하다(pip, 베이스 이미지). 세 이미지(`python:3.12-slim`, `eclipse-mosquitto:2.1.2-alpine`, `timescale/timescaledb:2.30.1-pg17`)는 arm64 manifest가 있다(2026-09-27 확인).
 
 ## 4. 개발용 compose (`compose.yaml`)
