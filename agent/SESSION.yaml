@@ -1,11 +1,11 @@
 task: OPS-4B
-phase: plan
+phase: execute
 base_commit: 4bc246d0c8e0f0f12a935dc4a34ef93ba11f0a34
 started_at: '2026-09-26T20:34:05Z'
 steps:
 - do: 'store/sql.py: 작업 9종 SQL(05 2절), 요약 네 조회, 상관분석 두 조회와 window 조건(05 5절)'
   check: A2, A4 준비(import 확인)
-  done: false
+  done: true
 - do: 'store/db.py: 연결(autocommit, connect_timeout 5, statement_timeout 5000)·스키마
     확인·재연결 2초, 끊긴 동안 작업 버리고 셈, on_db_ok 콜백'
   check: A4, A5
@@ -23,4 +23,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: phase execute 후 step 1(store/sql.py)부터 수행
+next_action: 'step 2~3: store/db.py 확인 후 test_db_writer.py'
