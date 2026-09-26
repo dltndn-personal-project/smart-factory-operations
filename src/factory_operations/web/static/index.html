@@ -4,10 +4,116 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Factory Operations</title>
+  <!-- 배치와 문구: docs/WIREFRAME.html, 규칙: docs/spec/06-dashboard.md 4·5절. 외부 요청 없음(D-12). -->
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <!-- 자리표시(OPS-6). 화면(index.html, app.js, plot.js, style.css)은 OPS-8이 채운다(docs/spec/06-dashboard.md 5절). -->
-  <h1>Factory Operations</h1>
-  <p>Dashboard 화면 준비 중. 데이터는 <a href="/api/snapshot">/api/snapshot</a>.</p>
+  <div id="conn-lost" class="conn-lost" role="alert" hidden>Operations 서버 연결 끊김 — 마지막 화면을 보여 주는 중</div>
+
+  <header>
+    <h1>Factory Operations</h1>
+    <span class="meta">generated_at <span id="generated-at">—</span></span>
+    <span id="mqtt-state" class="meta bad">MQTT</span><span id="db-state" class="meta bad">DB</span>
+    <span id="updated-ago" class="meta">갱신 대기 중</span>
+    <span id="debug-info" class="meta" hidden></span>
+  </header>
+
+  <main class="grid">
+    <section id="line" class="w5">
+      <h2>라인</h2>
+      <div id="line-note" class="note warn"></div>
+      <div id="line-conveyor" class="big">—</div>
+      <dl class="kv">
+        <dt>Current Fault Level</dt><dd><span id="line-fault">—</span> <span class="note">Simulator 설정값 · 평가용</span></dd>
+        <dt>생산 진행</dt><dd id="line-production">—</dd>
+        <dt>모터</dt><dd id="line-rpm">—</dd>
+        <dt>Simulator 누계</dt><dd><span id="line-created">—</span> <span class="note">simulator 누계</span></dd>
+        <dt>Interlock</dt><dd id="line-interlock">—</dd>
+        <dt>마지막 명령</dt><dd id="line-last-command">—</dd>
+      </dl>
+      <div class="btns">
+        <button type="button" id="btn-start">START</button>
+        <button type="button" id="btn-stop">STOP</button>
+        <span id="cmd-result" class="note" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section id="pdm" class="w7">
+      <h2 id="pdm-title">설비 상태 (PdM)</h2>
+      <div id="pdm-values" class="row">
+        <span id="pdm-state" class="badge b-stale">—</span>
+        <span>Health Index <b id="pdm-hi">—</b></span>
+        <span>Anomaly Score <b id="pdm-score">—</b></span>
+        <span id="pdm-time" class="note"></span>
+      </div>
+      <div id="pdm-notes" class="note warn"></div>
+      <canvas id="pdm-chart" class="chart" aria-label="최근 120초 추세"></canvas>
+      <div class="note">선: HI(파랑), Anomaly Score ×100(회색) · 가로선 HI 80 / 60 / 40 · 최근 120초</div>
+    </section>
+
+    <section id="vibration" class="w6">
+      <h2>실시간 진동 · 최근 1초</h2>
+      <div id="vibration-note" class="note warn"></div>
+      <canvas id="vib-x" class="chart chart-sm" aria-label="x축 min/max 띠"></canvas>
+      <canvas id="vib-y" class="chart chart-sm" aria-label="y축 min/max 띠"></canvas>
+      <canvas id="vib-z" class="chart chart-sm" aria-label="z축 min/max 띠"></canvas>
+      <div id="vibration-meta" class="note">x · y · z 축별 min/max 띠</div>
+    </section>
+
+    <section id="spectrum" class="w6">
+      <h2>FFT Spectrum · PdM 제공</h2>
+      <div id="spectrum-note" class="note warn"></div>
+      <div id="spectrum-panels"></div>
+      <div class="note">0~500 Hz · 패널마다 계열 하나당 선 하나(범례 = 계열 이름)</div>
+    </section>
+
+    <section id="quality" class="w12">
+      <h2>품질</h2>
+      <div class="row">
+        <span id="q-rate" class="big">—</span><span>Defect Rate</span>
+        <span>생산 <b id="q-produced">—</b></span><span>검사 <b id="q-inspected">—</b></span><span>불량 <b id="q-defects">—</b></span>
+      </div>
+      <div id="q-thumbs" class="thumbs"></div>
+    </section>
+
+    <section id="correlation" class="w12">
+      <h2 id="corr-title">설비-품질 상관관계</h2>
+      <div class="row">
+        <span id="corr-default">—</span>
+        <span id="corr-best"></span>
+      </div>
+      <div class="grid inner">
+        <div class="w6"><canvas id="corr-curve" class="chart" aria-label="lag별 계수"></canvas></div>
+        <div class="w6"><canvas id="corr-bins" class="chart" aria-label="30초 구간 불량률과 평균 Anomaly Score"></canvas></div>
+      </div>
+      <div class="note">설비 지표 = PdM Anomaly Score, 품질 지표 = 검사 불량 여부(pass-through), 기본 lag 13초(투입 → 캡처) · 라인 정지 중에는 PdM 결과가 없어 그 구간을 가리키는 표본은 빠진다</div>
+    </section>
+
+    <section id="alarms" class="w6">
+      <h2>Alarm History</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>시각</th><th>severity</th><th>전이</th><th>HI</th><th>Score</th></tr></thead>
+        <tbody id="alarms-body"></tbody>
+      </table></div>
+    </section>
+
+    <section id="controls" class="w6">
+      <h2>Control History</h2>
+      <div class="scroll"><table>
+        <thead><tr><th>기록</th><th>명령</th><th>사유</th><th>출처</th><th>결과</th><th>오류</th></tr></thead>
+        <tbody id="controls-body"></tbody>
+      </table></div>
+    </section>
+  </main>
+
+  <div id="viewer" class="viewer" hidden>
+    <figure>
+      <img id="viewer-img" alt="원본 이미지">
+      <figcaption id="viewer-caption" class="note"></figcaption>
+    </figure>
+  </div>
+
+  <script src="/static/plot.js"></script>
+  <script src="/static/app.js"></script>
 </body>
 </html>

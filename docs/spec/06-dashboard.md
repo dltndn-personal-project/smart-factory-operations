@@ -139,6 +139,14 @@
 
 `plot.js`: `drawLines(canvas, {x: {start, step, unit}, series: [{values, label, colorVar}], y: {min, max, label}, hlines})`, `drawBands(canvas, {min, max, colorVar, window_s})`, `drawBars(canvas, …)`. 축 눈금·범례만 그린다. 확대·툴팁은 없다.
 
+구현(`web/static/`, OPS-8):
+- 화면의 시:분:초는 ISO 값을 브라우저 지역 시각으로 바꾼 `HH:MM:SS.mmm`이다. 상단 막대의 `generated_at`만 받은 문자열 그대로(UTC) 보인다.
+- PdM 추세는 최근 120초를 0.5초 칸 241개로 펼쳐 `drawLines`로 그린다. 끝 = `pdm.timestamp + age_s`(지금)라 정지 중에는 선이 왼쪽으로 밀리고 빈 칸은 끊긴다. HI(0~100)와 Anomaly Score ×100을 한 축에 그린다.
+- 진동은 축마다 canvas 하나(`drawBands` 세 번), 스펙트럼은 `panels`마다 canvas 하나다. STALE이면 선을 `--stale` 색으로 그린다.
+- `drawBars(canvas, {labels, bars: {values, label, colorVar}, line: {values, label, colorVar}, y})`: 구간마다 막대(불량률)와 구간 중앙을 잇는 선(평균 Anomaly Score). null 구간(검사 없음)은 비운다. 가로축 라벨은 첫·끝 구간 시작 시각.
+- 목록·썸네일은 내용이 바뀐 칸만 DOM을 바꾼다(같은 스냅숏 내용이면 이미지를 다시 받지 않는다). 계수 null 사유 문구: `insufficient_samples` "표본 부족", `single_class`, `constant_score`는 뜻을 풀어 쓴다.
+- 운영자 명령 요청은 5초 뒤 끊는다(서버가 2초에 504를 준다). 결과는 버튼 옆에 `START 보냄 · 시각` 또는 `STOP 실패 · 504 timeout`처럼 보인다.
+
 ## 6. 설정
 
 | 키 | 기본값 | 의미 |
