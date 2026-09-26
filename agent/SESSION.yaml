@@ -21,13 +21,15 @@ steps:
     throttle=False(D-47)
 - do: test_interlock.py(S-01~S-12), test_alarm.py(L-01~L-11)
   check: A2, A3
-  done: false
+  done: true
+  note: 시나리오 도구 H는 test_worker.py에 두고 두 파일이 import(scope 안에 공용 파일을 새로 둘 수 없어서)
 - do: test_worker.py(명령 결과 확인, 처리 순서 표)
   check: A4, A5
-  done: false
+  done: true
 - do: make test, 순수성 검사
   check: A1, A6
-  done: false
+  done: true
+  note: 03 2절에 Processor 입출력·카운터 키·로그 억제 선택을 적음
 attempts: {}
 evidence: {}
-next_action: 'step 5: test_interlock.py(S-01~S-12), test_alarm.py(L-01~L-11)'
+next_action: agent.py verify 실행

@@ -56,6 +56,12 @@
 
 **Alarm 대상** PdM Result: 라인 센서는 판정 대상과 같은 조건, 라인 센서가 아닌 센서는 모든 결과. 라인 센서가 아닌 센서의 결과는 기록·Alarm만 하고 Interlock에는 쓰지 않는다(현재 시스템은 센서 하나).
 
+구현(`domain/worker.py`의 `Processor`, 스레드 없이 직접 부를 수 있다):
+- `handle(item)`: `Inbound(topic, payload, retain, recv_wall, recv_mono)` 또는 `OperatorCommand(command, future)`. `tick()`은 0.1초마다.
+- 버린 메시지는 StateStore 카운터 `("rejected", topic, reason)`에 센다. 구독하지 않는 Topic은 사유 `unknown_topic`. DB 큐가 가득 차면 `("db_queue_overflow", kind)`.
+- 운영자 명령 실패는 `future`에 `OperatorCommandError(code)`(`mqtt_disconnected`, `invalid_command`). HTTP가 이미 포기(취소)한 future는 건드리지 않는다.
+- 건마다 남아야 하는 WARNING·ERROR(`interlock_pending_timeout`, `alarm_publish_skipped`, `command_result`)는 로그 억제를 끈다(01 6절, D-47). 반복되는 `message_rejected`, `interlock_publish_skipped`, `command_result_without_id`(3.4절), `queue_overflow`는 억제한다.
+
 ## 3. Interlock과 명령
 
 ### 3.1 상태 (`Interlock`)
