@@ -1,8 +1,31 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-1
+phase: plan
+base_commit: d02ecfa36bc6146ec3bd9449ee53831336406669
+started_at: '2026-09-26T18:49:46Z'
+steps:
+- do: .gitignore(.venv/, __pycache__/, .pytest_cache/, data/, .env) 작성
+  check: A9
+  done: false
+- do: pyproject.toml(pytest 설정), requirements*.txt(07 7절), Makefile(venv·test·run),
+    .env.example
+  check: A8
+  done: false
+- do: 'config.py와 config/default.yaml: 모든 설정 절, extra=forbid, overlay 깊은 병합, 환경 변수,
+    범위 검사, 종료 코드 2'
+  check: A2, A6, A7
+  done: false
+- do: clock.py(Clock, SystemClock, iso_ms, parse_ts), log.py(JSON 한 줄, 같은 사유 10초 억제)
+  check: A3, A4
+  done: false
+- do: web/api.py(create_app, /healthz), app.py(lifespan 틀), __main__.py serve
+  check: A5
+  done: false
+- do: tests/conftest.py 공용 fixture와 payload 예시, tests/unit/test_config.py·test_clock.py·test_log.py
+  check: A1
+  done: false
+- do: make test 확인 후 agent/config.yaml verify에 unit 추가, validate.py --remote
+  check: A10
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(.gitignore)부터 수행
