@@ -1,0 +1,6 @@
+status: verifying
+commit: f02e553ebc176e3497abd2915fabc50ab82c9992
+checks:
+  A1: pass
+  A2: pass
+  A3: pending
