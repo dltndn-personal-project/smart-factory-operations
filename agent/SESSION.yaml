@@ -18,7 +18,9 @@ steps:
     뒤 확인
 - do: clock.py(Clock, SystemClock, iso_ms, parse_ts), log.py(JSON 한 줄, 같은 사유 10초 억제)
   check: A3, A4
-  done: false
+  done: true
+  note: conftest.py 공용 fixture를 이 step에서 같이 작성함(시계 테스트가 fake_clock을 씀). 로그 억제 대상을
+    D-47로 정함
 - do: web/api.py(create_app, /healthz), app.py(lifespan 틀), __main__.py serve
   check: A5
   done: false
@@ -30,5 +32,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 4: clock.py(Clock, SystemClock, iso_ms, parse_ts), log.py(JSON
-  한 줄, 같은 사유 10초 억제)'
+next_action: 'step 5: web/api.py(create_app, /healthz), app.py(lifespan 틀), __main__.py
+  serve'

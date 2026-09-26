@@ -89,7 +89,7 @@ factory-operations/
 
 - stdout에 한 줄 JSON: `{"ts": iso_ms, "level": "INFO", "logger": "...", "event": "...", ...필드}`. `logging.level` 이상만 쓴다.
 - 이벤트 이름: `mqtt_connected`, `mqtt_disconnected`, `message_rejected`(topic, reason, payload 앞 200바이트), `queue_overflow`, `alarm_raised`, `command_published`, `command_result`, `interlock_pending_timeout`, `db_connected`, `db_error`, `db_schema_missing`, `correlation_done`(DEBUG).
-- 같은 (event, topic, reason) 조합은 10초에 한 번만 쓰고, 그 사이 억제한 개수를 다음 줄의 `suppressed` 필드로 붙인다. 센서 메시지(초당 10개)가 계속 잘못되어도 로그가 넘치지 않게 하기 위해서다.
+- 같은 (event, topic, reason) 조합은 10초에 한 번만 쓰고, 그 사이 억제한 개수를 다음 줄의 `suppressed` 필드로 붙인다. 센서 메시지(초당 10개)가 계속 잘못되어도 로그가 넘치지 않게 하기 위해서다. 억제는 WARNING 이상 이벤트(`message_rejected`, `queue_overflow`, `db_error` 등)에 기본으로 적용하고, INFO 이하(`alarm_raised`, `command_published`, `command_result` 등 건마다 남겨야 하는 기록)는 억제하지 않는다. 호출에서 `throttle=`로 바꿀 수 있다(`DECISIONS.md` D-47).
 - Production 모니터링 스택은 두지 않는다(Shared 13절).
 
 ## 7. 수명 주기
