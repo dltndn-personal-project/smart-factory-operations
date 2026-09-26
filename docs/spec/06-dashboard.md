@@ -1,7 +1,7 @@
 # 06 Dashboard: HTTP API, 스냅숏, 화면
 
 > 목적: HTTP endpoint, `/api/snapshot` 형식과 상태(stale) 판정, 화면 구성과 브라우저 동작을 정한다.
-> 읽어야 할 때: `web/`(OPS-7, OPS-8), 화면 항목을 바꿀 때. 화면 배치는 `docs/WIREFRAME.html`.
+> 읽어야 할 때: `web/`(OPS-6, OPS-8), 화면 항목을 바꿀 때. 화면 배치는 `docs/WIREFRAME.html`.
 
 ## 1. 구성
 

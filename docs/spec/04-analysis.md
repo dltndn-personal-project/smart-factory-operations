@@ -1,7 +1,7 @@
 # 04 분석: 시간 결합과 상관분석
 
 > 목적: 설비 데이터와 제품·센서 데이터를 시간으로 잇는 규칙(`fault_level`, `health_index_at_time`)과 설비-품질 상관분석의 방법을 정한다.
-> 읽어야 할 때: `domain/join.py`, `domain/correlation.py`(OPS-3, OPS-5), Dashboard 상관관계 칸.
+> 읽어야 할 때: `domain/join.py`, `domain/correlation.py`(OPS-3A, OPS-5), Dashboard 상관관계 칸.
 
 ## 1. 시간 결합 (`join.py`)
 

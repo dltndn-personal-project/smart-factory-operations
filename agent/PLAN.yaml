@@ -1,5 +1,7 @@
 # 작업 계획. 사람이 PR로 리뷰한다. Agent가 추가하는 milestone과 task에는 proposed: true를 붙이고,
 # 사람이 승인할 때 지운다. 작성법은 agent/core/examples/PLAN.yaml과 agent/core/process/20-plan.md.
+# 2026-09-27 책임자가 채팅으로 이 계획(docs/plan/)을 승인했다(docs/spec/DECISIONS.md D-02, 조율 C-01). 그래서 M1~M6과 task에 proposed가 없다.
+# task 블록의 원본 설명과 단계 개요는 docs/plan/ 계획 파일에 있고, 두 곳은 같아야 한다(docs/plan/README.md 1절).
 milestones:
   - id: M0
     outcome: 도메인 슬롯을 채워 계획 기반 작업을 시작할 수 있다
@@ -7,6 +9,39 @@ milestones:
       - docs/COMPONENT.md에 미정 표시가 없다
       - agent/config.yaml에 실제로 실행해 본 검증 명령이 있다
       - 사람이 첫 도메인 milestone을 승인했다
+  - id: M1
+    outcome: 설정·시계·로그, 입력 Payload 파서 6종과 발행 Payload 생성, LineTracker·시간 결합, Interlock·Alarm·워커 처리 함수가 MQTT·DB 없이 가짜 시계·발행기·DB 싱크로 동작한다
+    exit_criteria:
+      - make test가 통과하고 C-01(test_payloads.py), C-02(test_interlock.py S-01~S-12, test_alarm.py L-01~L-11) 테스트가 그 안에 있다
+      - 저장소 루트에서 .venv/bin/python -m factory_operations serve가 Broker·DB 없이 기동해 /healthz가 200이다
+      - agent/config.yaml verify에 unit이 있다
+  - id: M2
+    outcome: db/schema.sql이 TimescaleDB initdb로 적용되고, DB 스레드가 쓰기 작업·센서 배치·요약 조회·재연결을 하며, 상관분석이 DB 데이터로 주기 계산된다
+    exit_criteria:
+      - make docker-test가 통과하고 C-03(test_schema.py) 테스트가 그 안에 있다
+      - make test에 C-07(test_correlation.py 알려진 lag 13초) 테스트가 있다
+      - agent/config.yaml verify에 docker가 있다
+  - id: M3
+    outcome: 실제 Mosquitto·TimescaleDB에 연결한 앱이 입력을 기록·결합하고, CRITICAL에 1초 안에 STOP과 Alarm Event를 내며, 명령 결과를 기록하고, /api/snapshot이 5초 안에 갱신된다
+    exit_criteria:
+      - make docker-test가 통과하고 C-04·C-06(test_app_flow.py), C-05(test_interlock_latency.py), C-08(test_dashboard_latency.py) 테스트가 그 안에 있다
+      - Broker·DB 없이 기동한 앱의 /readyz가 503이고, paho·psycopg·FastAPI를 import하는 모듈이 각각 하나다
+  - id: M4
+    outcome: 브라우저 Dashboard가 스냅숏으로 모든 칸을 그리고, 이미지 smoke가 컨테이너 안의 앱을 자동 확인하며, 개발용 compose와 가짜 입력으로 다른 Component 없이 화면 전체를 볼 수 있다
+    exit_criteria:
+      - make smoke가 통과한다 (C-09)
+      - 개발용 compose와 fake_feed로 띄운 앱의 스냅숏에 라인·PdM·스펙트럼·진동·검사가 LIVE로 나오고 STOP이 적용된다 (OPS-9B A4)
+      - docs/COMPONENT.md 실행 절이 실제 실행 방법과 같다
+      - agent/config.yaml verify에 smoke가 있다
+  - id: M5
+    outcome: PdM Result·PdM Spectrum·Alarm Event가 확정된 Shared commit을 contract_ref로 채택하고, 파서·fixture·spec이 그 확정본과 맞다
+    exit_criteria:
+      - SHARED_CONFIG.json contract_ref가 그 Shared commit이고 validate.py --remote가 통과한다
+      - contract_ref의 INTERFACES 예시로 만든 fixture를 파서가 받고, build_alarm의 키가 Shared Alarm Event 예시와 같다
+  - id: M6
+    outcome: 사람이 맥북 브라우저에서 Dashboard 확인 목록을 통과시켰다
+    exit_criteria:
+      - HUM-1의 M-01~M-10이 모두 통과다 (C-10)
 tasks:
   - id: BOOT-1
     milestone: M0
@@ -25,4 +60,568 @@ tasks:
       - id: A3
         text: 사람이 첫 도메인 milestone과 task 분해를 승인했다
         check: {type: manual, how: "PLAN.yaml에 proposed로 추가한 milestone과 task의 proposed 표시를 사람이 제거한다"}
+    size: M
+  - id: OPS-1
+    milestone: M1
+    type: feature
+    title: 패키지 골격, 설정, 시계, 로그, /healthz, Makefile
+    why: 모든 task가 쓰는 패키지 구조·설정 로딩·시계 주입·JSON 로그·공용 fixture·검증 진입점을 먼저 만든다 (spec 01, 07 1·2·6·7절, 08 2·3.1·5절)
+    depends_on: [BOOT-1]
+    scope: [src/**, config/**, tests/**, pyproject.toml, requirements.txt, requirements-dev.txt, Makefile, .gitignore, .env.example, agent/config.yaml, docs/spec/01-core.md, docs/spec/07-runtime.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: 설정이 기본값 로드, overlay 깊은 병합, 환경 변수 우선, 모르는 키와 범위 밖 값(interlock.pending_timeout_s 0, correlation.default_lag_s 40)의 키 경로 오류·종료 코드 2를 만족한다 (01 4절, 08 3.1절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_config.py tests/unit/test_config.py::test_overlay_deep_merge tests/unit/test_config.py::test_env_overrides_file tests/unit/test_config.py::test_unknown_key_exits_2 tests/unit/test_config.py::test_out_of_range_exits_2"}
+      - id: A3
+        text: iso_ms가 밀리초 3자리·버림(…59.9999가 다음 초로 올라가지 않음)·Z로 CONVENTIONS 정규식에 맞고, parse_ts가 정규식 밖 입력(…13Z, …13.4Z, +00:00)을 거부한다 (01 5절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_clock.py tests/unit/test_clock.py::test_iso_ms_truncates tests/unit/test_clock.py::test_parse_ts_rejects_non_ms"}
+      - id: A4
+        text: 같은 (event, topic, reason) 11번이 10초 안에 오면 한 줄이고, 10초 뒤 다음 줄에 suppressed 10이 붙는다 (01 6절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_log.py tests/unit/test_log.py::test_suppression_window"}
+      - id: A5
+        text: 저장소 루트에서 serve가 Broker·DB 없이 기동해 /healthz에 200, status ok, commit(GIT_COMMIT 값)으로 답한다 (01 7절, 06 2절)
+        check:
+          type: command
+          run: |
+            make venv >/dev/null || exit 1
+            d=$(mktemp -d)
+            HTTP_PORT=18280 GIT_COMMIT=ops1check MQTT_URL=mqtt://127.0.0.1:1 DATABASE_URL=postgresql://x:x@127.0.0.1:1/x .venv/bin/python -m factory_operations serve >"$d/serve.log" 2>&1 &
+            pid=$!
+            ok=1
+            for i in $(seq 60); do
+              if curl -fsS --max-time 1 http://127.0.0.1:18280/healthz >"$d/h.json" 2>/dev/null && grep -Eq '"status" *: *"ok"' "$d/h.json" && grep -Eq '"commit" *: *"ops1check"' "$d/h.json"; then ok=0; break; fi
+              sleep 0.25
+            done
+            kill "$pid"; wait "$pid"
+            [ "$ok" -eq 0 ] || cat "$d/serve.log"
+            exit "$ok"
+      - id: A6
+        text: 모르는 설정 키(FOPS_CONFIG overlay의 http.bogus_key)가 있으면 serve가 기동하지 않고 종료 코드 2로 끝나며 오류에 키 경로가 나온다 (01 4절)
+        check:
+          type: command
+          run: |
+            make venv >/dev/null || exit 1
+            f=$(mktemp)
+            printf 'http:\n  bogus_key: 1\n' > "$f"
+            FOPS_CONFIG="$f" .venv/bin/python -c "import subprocess, sys; r = subprocess.run([sys.executable, '-m', 'factory_operations', 'serve'], capture_output=True, text=True, timeout=20); out = r.stdout + r.stderr; print(r.returncode, out[-500:]); sys.exit(0 if r.returncode == 2 and 'http.bogus_key' in out else 1)"
+      - id: A7
+        text: config/default.yaml이 spec 설정 표의 모든 절을 가지며 표본 키가 spec 기본값과 같다 (01 4절, D-38)
+        check:
+          type: command
+          run: |
+            python3 - <<'EOF'
+            import sys, yaml
+            c = yaml.safe_load(open("config/default.yaml"))
+            want = {("http", "port"): 8080, ("mqtt", "url"): "mqtt://localhost:1883", ("mqtt", "client_id"): "factory-operations",
+                    ("mqtt", "topic_prefix"): "factory", ("db", "url"): "postgresql://factory:factory@localhost:5432/factory",
+                    ("db", "summary_period_s"): 2.0, ("paths", "image_root"): "./data", ("logging", "level"): "INFO",
+                    ("line", "sensor_id"): "motor01", ("interlock", "pending_timeout_s"): 5.0, ("join", "max_gap_s"): 5.0,
+                    ("correlation", "default_lag_s"): 13, ("correlation", "window_s"): None, ("pdm", "stale_s"): 2.0,
+                    ("pdm", "history_s"): 120, ("dashboard", "vibration_buckets"): 500, ("dashboard", "recent_controls"): 20}
+            bad = [k for k, v in want.items() if (c.get(k[0]) or {}).get(k[1], "MISSING") != v]
+            print("mismatch:", bad)
+            sys.exit(1 if bad else 0)
+            EOF
+      - id: A8
+        text: requirements.txt와 requirements-dev.txt가 spec 07 7절 버전 그대로 == 로 고정되어 있다 (D-06)
+        check: {type: command, run: "for p in 'fastapi==0.141.1' 'uvicorn==0.54.0' 'paho-mqtt==2.1.0' 'psycopg[binary]==3.3.6' 'numpy==2.5.3' 'scipy==1.18.1' 'pydantic==2.13.5' 'pyyaml==6.0.3'; do grep -qxF -- \"$p\" requirements.txt || { echo \"missing $p\"; exit 1; }; done; for p in '-r requirements.txt' 'pytest==9.1.1' 'httpx==0.28.1'; do grep -qxF -- \"$p\" requirements-dev.txt || { echo \"missing $p\"; exit 1; }; done"}
+      - id: A9
+        text: venv·캐시·로컬 이미지·.env가 git에서 무시된다 (verify가 untracked 파일을 거부하므로)
+        check: {type: command, run: "git check-ignore -q .venv/x && git check-ignore -q src/factory_operations/__pycache__/x.pyc && git check-ignore -q .pytest_cache/x && git check-ignore -q data/products/x.jpg && git check-ignore -q .env"}
+      - id: A10
+        text: agent/config.yaml verify에 spec 08 5절의 unit 명령이 그대로 있다
+        check: {type: command, run: "python3 -c \"import sys, yaml; v = yaml.safe_load(open('agent/config.yaml'))['verify']; sys.exit(0 if {'name': 'unit', 'run': 'make test'} in v else 1)\""}
+    size: M
+  - id: OPS-2
+    milestone: M1
+    type: feature
+    title: 입력 파서 6종, 발행 Payload 생성, 스펙트럼 패널
+    why: 모든 입력은 파싱·검증을 거친 객체로만 도메인에 들어가고, 발행 Payload는 A-02·A-03 형식이어야 한다. PdM 형식 의존을 이 모듈 한 곳에 모은다 (C-01, spec 02 2~4절, D-39)
+    depends_on: [OPS-1]
+    scope: [src/factory_operations/mqtt/__init__.py, src/factory_operations/mqtt/topics.py, src/factory_operations/mqtt/payloads.py, tests/unit/test_payloads.py, tests/unit/test_topics.py, tests/fixtures/payloads/**, docs/spec/02-mqtt.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: Shared 예시 5개(Sensor Vibration은 스칼라 필드 + seed 고정 배열)와 PdM 아키텍처 6.2절 예시가 받아지고 파싱 값이 원문과 같다 (08 2절, 3.2절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_shared_examples_accepted tests/unit/test_payloads.py::test_pdm_draft_example_accepted"}
+      - id: A3
+        text: 02 3.2~3.7절 표의 필드를 하나씩 빼거나 틀리게 하면 missing_field·invalid_field·topic_mismatch·unsupported_schema_version(bool 포함)·invalid_json 사유로 거부되고, 선택 필드는 틀려도 받고 null이 된다 (3.1절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_missing_field_reasons tests/unit/test_payloads.py::test_invalid_field_reasons tests/unit/test_payloads.py::test_topic_mismatch tests/unit/test_payloads.py::test_unsupported_schema_version tests/unit/test_payloads.py::test_invalid_json tests/unit/test_payloads.py::test_optional_fields_become_null"}
+      - id: A4
+        text: Line Status online false(다른 필드 없음)를 받고, last_command.result가 틀리면 last_command만 null이 되며, Vision Result는 confidence·bbox·gradcam_path 키가 없어도 받는다 (3.3·3.5절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_line_offline_only tests/unit/test_payloads.py::test_bad_last_command_nulls_only_it tests/unit/test_payloads.py::test_vision_missing_optional_keys"}
+      - id: A5
+        text: 스펙트럼 (a) spectrum_x/y/z + freq_step_hz → 패널 1개·계열 3개·x_step 1.0 Hz (b) + envelope_y → 패널 2개 (c) 간격 없음 → x_unit bin (d) 배열 없음 → no_series (e) 300 KB → too_large (3.7절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_spectrum_single_panel tests/unit/test_payloads.py::test_spectrum_envelope_panel tests/unit/test_payloads.py::test_spectrum_bins_without_step tests/unit/test_payloads.py::test_spectrum_no_series tests/unit/test_payloads.py::test_spectrum_too_large"}
+      - id: A6
+        text: build_conveyor·build_alarm의 키 집합과 값이 A-03(Shared Conveyor Control 예시)·A-02 형식과 같고, timestamp가 CONVENTIONS 정규식에 맞으며 command_id가 UUID4다 (4.1절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_build_conveyor_shape tests/unit/test_payloads.py::test_build_alarm_shape"}
+      - id: A7
+        text: 이미지 경로 products/../x.jpg, /data/products/a.jpg, products/.P-1.jpg.tmp, gradcam/a.jpg(products 자리), products/a.gif가 거부된다 (3.1절 6번)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_rel_path_rejects"}
+      - id: A8
+        text: Topic이 접두사로 만들어지고 수신 Topic에서 입력 종류와 sensor_id 자리를 찾는다 (2절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_topics.py::test_topics_with_prefix tests/unit/test_topics.py::test_kind_of_topic"}
+      - id: A9
+        text: Payload fixture가 9개 이상이고, 출처 기록(SOURCES.md)에 Shared d0c997c와 PdM db9b7e7 commit이 있다
+        check: {type: command, run: "test \"$(ls tests/fixtures/payloads/*.json | wc -l)\" -ge 9 && grep -q d0c997c97129141d9853a42ce6e0d1f8f7309ae9 tests/fixtures/payloads/SOURCES.md && grep -q db9b7e79ce2329104d611ab52c509e74c6b927dd tests/fixtures/payloads/SOURCES.md"}
+    size: M
+  - id: OPS-3A
+    milestone: M1
+    type: feature
+    title: StateStore, LineTracker, 시간 결합
+    why: Interlock·Alarm·저장·화면이 모두 라인 상태, 재가동 기준 시각, Fault Level 변화점, PdM 이력을 같은 규칙으로 봐야 한다 (spec 01 3절, 03 1절, 04 1절, D-17)
+    depends_on: [OPS-2]
+    scope: [src/factory_operations/domain/__init__.py, src/factory_operations/domain/state.py, src/factory_operations/domain/line.py, src/factory_operations/domain/join.py, tests/unit/test_state.py, tests/unit/test_line.py, tests/unit/test_join.py, docs/spec/03-control.md, docs/spec/04-analysis.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: LineTracker가 기동 뒤 첫 RUNNING·STOPPED→RUNNING·offline→RUNNING에서 기준 시각을 잡고, 1초 주기 같은 값은 변화로 보지 않으며, fault_changes는 값이 바뀔 때만 늘고, 재가동 이벤트는 마지막 conveyor가 STOPPED였다가 RUNNING일 때만 낸다(첫 동기화·RUNNING→offline→RUNNING 제외) (03 1.2절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_line.py tests/unit/test_line.py::test_first_running_sets_reference tests/unit/test_line.py::test_stopped_to_running_new_reference tests/unit/test_line.py::test_offline_to_running_new_reference tests/unit/test_line.py::test_periodic_status_is_not_change tests/unit/test_line.py::test_fault_changes_only_on_change tests/unit/test_line.py::test_restart_event_rules"}
+      - id: A3
+        text: 가짜 시계로 Fault Level을 700초 동안 바꾸지 않아도 fault_level_at(현재)가 그 값이다 (03 1.1절, 08 3.3절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_line.py::test_fault_level_kept_after_700s"}
+      - id: A4
+        text: fault_level_at는 변화점과 같은 timestamp면 그 값, 첫 변화점 이전은 null이고, health_index_at_time은 차가 정확히 max_gap_s면 붙고 1 ms 넘으면 null, 미래 결과는 쓰지 않으며 결과가 없어도 sensor_id는 라인 센서다 (04 1절, 08 3.4절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_join.py tests/unit/test_join.py::test_fault_level_at_inclusive tests/unit/test_join.py::test_fault_level_before_first_is_null tests/unit/test_join.py::test_health_index_gap_boundary tests/unit/test_join.py::test_future_pdm_not_used tests/unit/test_join.py::test_no_pdm_keeps_line_sensor"}
+      - id: A5
+        text: StateStore.snapshot_view()가 락 안에서 얕은 복사를 돌려주고, PdM 이력이 timestamp 기준 최근 pdm.history_s(120초)만 남는다 (01 3절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_state.py::test_snapshot_view_copies tests/unit/test_state.py::test_pdm_history_trims_120s"}
+    size: M
+  - id: OPS-3B
+    milestone: M1
+    type: feature
+    title: Interlock, AlarmManager, 워커 처리 함수와 시나리오
+    why: CRITICAL이면 한 번만 STOP을 보내고 결과로 대기를 끝내며, WARNING·CRITICAL 진입만 Alarm으로 내고, 모든 입력을 정해진 순서로 처리해 DB 작업을 만든다 (C-02, spec 03 2~4·6절, 05 2절, D-18~D-22)
+    depends_on: [OPS-3A]
+    scope: [src/factory_operations/domain/interlock.py, src/factory_operations/domain/alarm.py, src/factory_operations/domain/worker.py, src/factory_operations/domain/state.py, src/factory_operations/store/__init__.py, src/factory_operations/store/jobs.py, tests/unit/test_interlock.py, tests/unit/test_alarm.py, tests/unit/test_worker.py, docs/spec/03-control.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: Interlock 시나리오 S-01~S-12가 모두 spec 03 6절 표대로다 (C-02)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q $(for i in 01 02 03 04 05 06 07 08 09 10 11 12; do printf 'tests/unit/test_interlock.py::test_s%s ' \"$i\"; done)"}
+      - id: A3
+        text: Alarm 시나리오 L-01~L-11이 모두 spec 03 6절 표대로다(L-07은 발행기 기록 순서 Alarm Event → STOP) (C-02, C-05 발행 순서)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q $(for i in 01 02 03 04 05 06 07 08 09 10 11; do printf 'tests/unit/test_alarm.py::test_l%s ' \"$i\"; done)"}
+      - id: A4
+        text: 명령 결과 확인이 자기 명령은 control_result 작업과 대기 종료, 모르는 command_id는 control_observed 작업, 같은 last_command는 한 번만, command_id null은 기록하지 않음을 만족한다 (03 3.4절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_worker.py::test_known_command_result_updates tests/unit/test_worker.py::test_unknown_command_observed_insert tests/unit/test_worker.py::test_same_last_command_once tests/unit/test_worker.py::test_null_command_id_not_recorded"}
+      - id: A5
+        text: 처리 순서 표대로 센서 chunk는 fault_level 결합·sensor 작업·진동 링(형식·seq가 바뀌면 비움), Vision Result는 health_index_at_time 결합·inspection 작업, 스펙트럼은 라인 센서만 교체, Line Status 변화만 line_change 작업, 거부된 메시지는 카운터만 남긴다 (03 2절, 02 3절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_worker.py::test_sensor_chunk_joined_and_ringed tests/unit/test_worker.py::test_ring_resets_on_format_or_seq_gap tests/unit/test_worker.py::test_vision_joined_health_index tests/unit/test_worker.py::test_spectrum_only_line_sensor tests/unit/test_worker.py::test_line_change_job_only_on_change tests/unit/test_worker.py::test_rejected_message_counted"}
+      - id: A6
+        text: domain과 store/jobs.py가 paho·psycopg·FastAPI·uvicorn을 import하지 않는다 (01 1절)
+        check: {type: command, run: "! grep -rnE '^[[:space:]]*(import|from)[[:space:]]+(paho|psycopg|fastapi|uvicorn)' src/factory_operations/domain src/factory_operations/store/jobs.py"}
+    size: M
+  - id: OPS-4
+    milestone: M2
+    type: feature
+    title: db/schema.sql, DB 스레드(쓰기·배치·요약·재연결), Docker DB fixture
+    why: 모든 입력과 판단 결과가 Shared 5.2·5.3 저장 요구대로 한 DB에 남고, DB가 느리거나 끊겨도 Interlock이 막히지 않아야 한다. integration은 이 DDL을 initdb로 적용한다 (C-03, spec 05, A-08, D-14·D-25·D-26)
+    depends_on: [OPS-3B]
+    scope: [db/**, src/factory_operations/store/**, tests/docker/**, Makefile, agent/config.yaml, docs/spec/05-storage.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: Docker 연동 테스트 전체가 통과한다
+        check: {type: command, run: "make docker-test"}
+      - id: A3
+        text: db/schema.sql을 timescale/timescaledb:2.30.1-pg17 initdb로 적용하면 테이블 8개(schema_info 포함)·view defect_result·hypertable sensor_chunk·schema_info 버전 1이 생기고, psql -v ON_ERROR_STOP=1로 한 번 더 실행해도 종료 코드 0이다 (C-03)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_schema.py::test_schema_objects tests/docker/test_schema.py::test_schema_reapply"}
+      - id: A4
+        text: 05 2절 작업 9종이 표대로 행을 만들고 중복을 무시하며, 센서 25개가 2번 이상의 배치로 모두 기록되고, control_result는 result가 비어 있을 때만 갱신한다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_db_writer.py::test_each_job_writes_row tests/docker/test_db_writer.py::test_duplicates_ignored tests/docker/test_db_writer.py::test_sensor_batches tests/docker/test_db_writer.py::test_control_result_update_once"}
+      - id: A5
+        text: DB 컨테이너 docker restart 뒤 db_ok가 false가 되었다가 15초 안에 true로 돌아오고 이후 쓰기가 된다 (05 3절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_db_writer.py::test_db_restart_recovers"}
+      - id: A6
+        text: schema_info가 없으면 db_ok false(db_schema_missing)이고, 요약 콜백이 05 5절 값을 주며, 상관분석 주기에 주입한 계산 함수가 두 조회 결과(window_s 조건 포함)를 받는다 (05 3·5절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_db_writer.py::test_schema_missing_not_ok tests/docker/test_db_writer.py::test_summary_callback tests/docker/test_db_writer.py::test_correlation_hook_receives_rows"}
+      - id: A7
+        text: db/schema.sql이 spec 05 4절 DDL과 주석·공백을 빼고 같다 (A-08)
+        check:
+          type: command
+          run: |
+            python3 - <<'EOF'
+            import re, sys
+            sec = open("docs/spec/05-storage.md").read().split("## 4. DDL", 1)[1]
+            fence = "`" * 3
+            ddl = re.search(fence + r"sql\n(.*?)" + fence, sec, re.S).group(1)
+            norm = lambda s: " ".join(re.sub(r"--[^\n]*", "", s).split())
+            ok = norm(ddl) == norm(open("db/schema.sql").read())
+            print("schema.sql matches spec 05 section 4:", ok)
+            sys.exit(0 if ok else 1)
+            EOF
+      - id: A8
+        text: tests/docker의 모든 테스트가 docker 마커를 가져 make test(-m "not docker")에 들어가지 않는다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q -m 'not docker' tests/docker; test $? -eq 5"}
+      - id: A9
+        text: agent/config.yaml verify에 spec 08 5절의 docker 명령이 그대로 있다
+        check: {type: command, run: "python3 -c \"import sys, yaml; v = yaml.safe_load(open('agent/config.yaml'))['verify']; sys.exit(0 if {'name': 'docker', 'run': 'make docker-test'} in v else 1)\""}
+    size: M
+  - id: OPS-5
+    milestone: M2
+    type: feature
+    title: 설비-품질 상관분석과 DB 주기 계산
+    why: 설비 상태(PdM Anomaly Score)와 불량의 관계를 Pearson·Spearman·Time Lag로 Dashboard에 보여야 한다. 알려진 lag로 방법이 맞는지 확인한다 (C-07, spec 04 2절, D-13·D-30)
+    depends_on: [OPS-4]
+    scope: [src/factory_operations/domain/correlation.py, tests/unit/test_correlation.py, tests/docker/test_correlation_db.py, docs/spec/04-analysis.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: seed 고정 합성 데이터(점수 0.5초 간격 600초 계단, 제품 2초 간격, 불량 확률 0.05 + 0.6·score(t − 13))에서 best.lag_s가 12~14이고 at_default.pearson > 0.3이다 (C-07, 08 3.4절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_correlation.py::test_known_lag_13"}
+      - id: A3
+        text: 표본 19개 → insufficient_samples, 모두 양품 → single_class, 점수 상수 → constant_score로 계수가 null이고, |Pearson|이 같은 두 lag 중 작은 lag가 best다 (04 2.2절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_correlation.py::test_insufficient_samples tests/unit/test_correlation.py::test_single_class tests/unit/test_correlation.py::test_constant_score tests/unit/test_correlation.py::test_tie_prefers_smaller_lag"}
+      - id: A4
+        text: bins가 첫 검사 시각부터 30초 구간이고 각 defect_rate·n_inspected가 직접 센 값과 같으며, 결과 dict의 키와 반올림이 04 2.3절 형식이다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_correlation.py::test_bins_match_counts tests/unit/test_correlation.py::test_result_shape"}
+      - id: A5
+        text: 실제 DB에 합성 검사·설비 행을 넣고 DB 스레드에 이 계산 함수를 주입하면 주기 계산 결과가 콜백으로 나오고 best.lag_s가 12~14다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_correlation_db.py::test_periodic_correlation_from_db"}
+      - id: A6
+        text: Docker 연동 테스트 전체가 통과한다
+        check: {type: command, run: "make docker-test"}
+    size: S
+  - id: OPS-6
+    milestone: M3
+    type: feature
+    title: 스냅숏, HTTP API, 이미지 응답, 예시 이미지 fixture
+    why: 화면과 갱신 지연 측정·integration 관찰이 /api/snapshot 하나를 보고, 흐름 연동 테스트가 /readyz와 스냅숏으로 처리 완료를 확인한다 (spec 06 1~4절, A-09·A-10, D-15·D-23·D-33)
+    depends_on: [OPS-4]
+    scope: [src/factory_operations/web/__init__.py, src/factory_operations/web/api.py, src/factory_operations/web/snapshot.py, src/factory_operations/web/images.py, src/factory_operations/web/static/index.html, tests/unit/test_snapshot.py, tests/unit/test_api.py, tests/fixtures/images/**, docs/spec/06-dashboard.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: 스냅숏이 pdm age_s 2.0 LIVE·2.1 STALE, before_restart, line NONE·OFFLINE·STALE·LIVE, 진동 구간 min/max(샘플 수 < 구간 수 포함), 목록 길이 상한, 상관분석 stale, 모든 시각 필드의 정규식을 만족하고 가득 찬 스냅숏이 150 KB 이하다 (06 3·4절, 08 3.5절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_snapshot.py tests/unit/test_snapshot.py::test_pdm_live_stale_boundary tests/unit/test_snapshot.py::test_before_restart tests/unit/test_snapshot.py::test_line_status_states tests/unit/test_snapshot.py::test_vibration_minmax_buckets tests/unit/test_snapshot.py::test_vibration_fewer_samples_than_buckets tests/unit/test_snapshot.py::test_list_limits tests/unit/test_snapshot.py::test_correlation_stale tests/unit/test_snapshot.py::test_all_times_match_regex tests/unit/test_snapshot.py::test_full_snapshot_size"}
+      - id: A3
+        text: /healthz 200, /readyz 503·200, /api/snapshot Cache-Control no-store, /api/images 200(image/jpeg)·400·404, /api/conveyor 202·422·503·504, GET / 200이 spec 06 2절대로다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_api.py tests/unit/test_api.py::test_healthz tests/unit/test_api.py::test_readyz tests/unit/test_api.py::test_snapshot_no_store tests/unit/test_api.py::test_images_status_codes tests/unit/test_api.py::test_conveyor_status_codes tests/unit/test_api.py::test_index_served"}
+      - id: A4
+        text: 예시 이미지 P-00000001~8.jpg가 640 px JPEG이고 만드는 스크립트가 있다 (07 5절)
+        check: {type: command, run: "test -f tests/fixtures/images/make_images.py || exit 1; for i in 1 2 3 4 5 6 7 8; do f=tests/fixtures/images/P-0000000$i.jpg; out=$(sips -g format -g pixelWidth -g pixelHeight \"$f\" 2>/dev/null) || { echo \"missing $f\"; exit 1; }; echo \"$out\" | grep -q 'format: jpeg' && echo \"$out\" | grep -q 'pixelWidth: 640' && echo \"$out\" | grep -q 'pixelHeight: 640' || { echo \"bad $f\"; exit 1; }; done"}
+      - id: A5
+        text: snapshot.py와 images.py가 FastAPI·psycopg·paho를 import하지 않는다 (01 1절)
+        check: {type: command, run: "! grep -nE '^[[:space:]]*(import|from)[[:space:]]+(fastapi|starlette|psycopg|paho)' src/factory_operations/web/snapshot.py src/factory_operations/web/images.py"}
+    size: M
+  - id: OPS-7A
+    milestone: M3
+    type: feature
+    title: paho client, 워커 스레드, 앱 조립, 흐름 연동 테스트
+    why: MQTT 수신 → 워커 → 발행·DB·StateStore → HTTP가 한 프로세스로 이어져야 실제 broker·DB에서 기록·결합·Interlock·명령 결과가 동작한다 (C-04, C-06, spec 01 2·7절, 02 1·4·5절, 03 3.3절)
+    depends_on: [OPS-5, OPS-6]
+    scope: [src/factory_operations/*.py, tests/docker/**, tests/unit/test_mqtt_client.py, docs/spec/01-core.md, docs/spec/02-mqtt.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: Docker 연동 테스트 전체가 통과한다
+        check: {type: command, run: "make docker-test"}
+      - id: A3
+        text: 실제 Mosquitto·DB에 연결한 앱에 Line Status·센서 20개·PdM 4개·제품·검사 2쌍을 보내면 5초 안에 spec 08 3.6절 표대로 행이 생기고 fault_level·health_index_at_time이 결합 규칙과 같으며, CRITICAL 뒤 APPLIED 결과를 보내면 3초 안에 control.result가 APPLIED다 (C-04, C-06)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_app_flow.py::test_rows_and_joins tests/docker/test_app_flow.py::test_stop_result_recorded"}
+      - id: A4
+        text: POST /api/conveyor START가 202이고 harness가 reason OPERATOR_START인 Conveyor Control을 받으며 control 행이 생긴다 (03 3.3절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_app_flow.py::test_operator_start_published"}
+      - id: A5
+        text: Mosquitto 컨테이너 docker restart 뒤 15초 안에 /readyz가 200이고 그 뒤 보낸 PdM Result가 equipment_state에 기록된다 (02 5절, 08 3.6절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_broker_restart.py::test_broker_restart_recovers"}
+      - id: A6
+        text: MQTT가 끊겨 있으면 publish가 paho를 부르지 않고 False를 돌려주고, on_message는 파싱 없이 inbound 큐에 넣기만 하며 큐가 가득 차면 버린 수를 센다 (01 2절, 02 1·4.2절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_mqtt_client.py::test_publish_skipped_when_disconnected tests/unit/test_mqtt_client.py::test_on_message_only_enqueues tests/unit/test_mqtt_client.py::test_inbound_overflow_counted"}
+      - id: A7
+        text: Broker·DB 없이 기동한 serve가 /readyz에 503(mqtt_connected false, db_ok false)으로 답하고, SIGTERM 뒤 10초 안에 끝난다 (01 7절, 06 2절)
+        check:
+          type: command
+          run: |
+            make venv >/dev/null || exit 1
+            d=$(mktemp -d)
+            HTTP_PORT=18281 MQTT_URL=mqtt://127.0.0.1:1 DATABASE_URL=postgresql://x:x@127.0.0.1:1/x .venv/bin/python -m factory_operations serve >"$d/serve.log" 2>&1 &
+            pid=$!
+            ok=1
+            for i in $(seq 60); do
+              code=$(curl -s -o "$d/r.json" -w '%{http_code}' --max-time 1 http://127.0.0.1:18281/readyz)
+              if [ "$code" = 503 ] && grep -Eq '"mqtt_connected" *: *false' "$d/r.json" && grep -Eq '"db_ok" *: *false' "$d/r.json"; then ok=0; break; fi
+              sleep 0.25
+            done
+            kill -TERM "$pid"
+            for i in $(seq 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.25; done
+            if kill -0 "$pid" 2>/dev/null; then echo "not stopped within 10s"; kill -9 "$pid"; ok=1; fi
+            [ "$ok" -eq 0 ] || cat "$d/serve.log"
+            exit "$ok"
+      - id: A8
+        text: paho·psycopg·FastAPI를 import하는 모듈이 각각 mqtt/client.py, store/db.py, web/api.py 하나다 (01 1절)
+        check:
+          type: command
+          run: |
+            chk() { found=$(grep -rlE "^[[:space:]]*(import|from)[[:space:]]+$1([[:space:].]|$)" src | sort | tr '\n' ' '); [ "$found" = "$2 " ] || { echo "$1: $found"; exit 1; }; }
+            chk paho src/factory_operations/mqtt/client.py
+            chk psycopg src/factory_operations/store/db.py
+            chk fastapi src/factory_operations/web/api.py
+    size: M
+  - id: OPS-7B
+    milestone: M3
+    type: feature
+    title: Interlock 지연(C-05)과 Dashboard 갱신 지연(C-08) 측정 테스트
+    why: CRITICAL 판정 뒤 1초 안에 STOP이 나가고(Component 목표), 입력이 5초 안에 화면 데이터에 반영된다는 과제 기준을 정해진 방법으로 매 변경마다 잰다 (C-05, C-08, spec 08 4절, A-10·A-11, D-34)
+    depends_on: [OPS-7A]
+    scope: [tests/docker/test_interlock_latency.py, tests/docker/test_dashboard_latency.py, tests/docker/conftest.py, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 5회 반복에서 재가동 기준 시각 뒤 CRITICAL PdM Result 발행부터 harness의 STOP(reason INTERLOCK_CRITICAL) 수신까지 최댓값이 1.0초 이하이고 매회 Alarm Event도 받는다 (C-05, 08 4.2절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_interlock_latency.py::test_critical_to_stop_within_1s"}
+      - id: A2
+        text: 60초 부하에서 이벤트 일곱 종류의 D = t_seen − t_rx + P(1.0) + r_max + R(0.2) 최댓값이 5.0초 이하이고 r_max가 0.5초 이하이며, p50·p95·max를 출력한다 (C-08, 08 4.1절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q -s tests/docker/test_dashboard_latency.py::test_dashboard_update_within_5s"}
+      - id: A3
+        text: Docker 연동 테스트 전체가 300초 안에 통과한다 (spec 08 5절 "약 3분")
+        check: {type: metric, run: "s=$(date +%s); make docker-test >/dev/null 2>&1 || { echo failed; exit 1; }; echo $(( $(date +%s) - s ))", max: 300}
+    size: S
+  - id: OPS-8
+    milestone: M4
+    type: feature
+    title: Dashboard 화면 (index.html, app.js, plot.js, style.css)
+    why: 운영자가 한 화면에서 라인·설비 상태·진동·스펙트럼·품질·상관관계·Alarm·Control 이력을 1초마다 보고 START/STOP을 한다 (spec 06 4·5절, WIREFRAME, D-12·D-24)
+    depends_on: [OPS-6]
+    scope: [src/factory_operations/web/static/**, tests/unit/test_static.py, docs/spec/06-dashboard.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: index.html에 화면 칸 id(line, pdm, vibration, spectrum, quality, correlation, alarms, controls)가 있고, app.js에 const POLL_INTERVAL_MS = 1000;이 있으며, 정적 파일에 http·https 외부 URL이 없다 (08 3.5절)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_static.py::test_panel_ids tests/unit/test_static.py::test_poll_interval_constant tests/unit/test_static.py::test_no_external_urls"}
+      - id: A3
+        text: 앱이 GET /와 /static/app.js·plot.js·style.css를 200으로 준다
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_static.py::test_static_served"}
+      - id: A4
+        text: 화면 문구와 동작 표시가 있다 — 4절 stale 문구(마지막 판정, 라인 정지 중, 재가동 전 판정, Operations 서버 연결 끊김), PdM 스펙트럼 없음, 현재 범위에서 제공하지 않음, 표본 부족, CRITICAL START 확인 창 문구, ?debug=1 렌더링 시간(performance.now), prefers-color-scheme
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_static.py::test_status_texts tests/unit/test_static.py::test_start_confirm_text tests/unit/test_static.py::test_debug_timing tests/unit/test_static.py::test_color_scheme"}
+    size: M
+  - id: OPS-9A
+    milestone: M4
+    type: feature
+    title: Dockerfile, .dockerignore, scripts/smoke.py, verify smoke
+    why: integration이 이 저장소 Dockerfile로 이미지를 만들어 시스템 compose에 넣는다. 컨테이너 안의 앱이 MQTT·DB·Image Storage(:ro)와 연결해 동작하는지 매 변경마다 자동 확인한다 (C-09, spec 07 3절, 08 3.7절, A-09)
+    depends_on: [OPS-7A]
+    scope: [Dockerfile, .dockerignore, scripts/smoke.py, Makefile, agent/config.yaml, docs/spec/07-runtime.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: make smoke가 통과한다 — 빌드, 컨테이너가 뜬 뒤 30초 안 /readyz 200, /healthz commit이 빌드 인자와 같음, CRITICAL → 2초 안 Alarm Event·STOP, 결과 기록, 검사 스냅숏 반영, 이미지 응답, DB 행 확인 (C-09, 08 3.7절)
+        check: {type: command, run: "make smoke"}
+      - id: A2
+        text: Dockerfile이 spec 07 3절의 베이스 이미지·빌드 인자·포트·HEALTHCHECK·CMD를 가진다
+        check: {type: command, run: "grep -qxF 'FROM python:3.12-slim' Dockerfile && grep -qxF 'ARG GIT_COMMIT=unknown' Dockerfile && grep -qxF 'EXPOSE 8080' Dockerfile && grep -q '^HEALTHCHECK ' Dockerfile && grep -qxF 'CMD [\"python\", \"-m\", \"factory_operations\", \"serve\"]' Dockerfile"}
+      - id: A3
+        text: .dockerignore에 spec 07 3절 항목이 모두 있다
+        check: {type: command, run: "for p in .git .venv data tests docs agent scripts '**/__pycache__'; do grep -qxF -- \"$p\" .dockerignore || { echo \"missing $p\"; exit 1; }; done"}
+      - id: A4
+        text: smoke가 만든 이미지에 tests·docs가 없고 정적 파일과 기본 설정이 있다
+        check: {type: command, run: "docker run --rm factory-operations:smoke python -c \"import os, sys; bad = [p for p in ('/app/tests', '/app/docs', '/app/agent') if os.path.exists(p)]; miss = [p for p in ('/app/src/factory_operations/web/static/index.html', '/app/config/default.yaml') if not os.path.exists(p)]; print(bad, miss); sys.exit(1 if bad or miss else 0)\""}
+      - id: A5
+        text: smoke가 끝난 뒤 fops-smoke- 이름의 컨테이너·network·volume이 남지 않는다 (08 3.7절 7번)
+        check: {type: command, run: "test -z \"$(docker ps -aq --filter name=fops-smoke-)\" && test -z \"$(docker network ls -q --filter name=fops-smoke-)\" && test -z \"$(docker volume ls -q --filter name=fops-smoke-)\""}
+      - id: A6
+        text: agent/config.yaml verify에 spec 08 5절의 smoke 명령이 그대로 있다
+        check: {type: command, run: "python3 -c \"import sys, yaml; v = yaml.safe_load(open('agent/config.yaml'))['verify']; sys.exit(0 if {'name': 'smoke', 'run': 'make smoke'} in v else 1)\""}
+    size: M
+  - id: OPS-9B
+    milestone: M4
+    type: feature
+    title: 개발용 compose, scripts/fake_feed.py, make feed, COMPONENT.md 실행 절
+    why: 다른 Component 없이 화면 전체와 Interlock 흐름을 보려면 저장소 단독 compose와 Simulator·PdM·Vision 흉내 입력이 있어야 한다. 사람 확인(HUM-1)이 이것으로 한다 (spec 07 4·5·6절, 08 6절, D-35)
+    depends_on: [OPS-9A, OPS-8]
+    scope: [compose.yaml, scripts/fake_feed.py, tests/unit/test_fake_feed.py, Makefile, .env.example, docs/COMPONENT.md, docs/spec/07-runtime.md, docs/spec/DECISIONS.md]
+    acceptance:
+      - id: A1
+        text: 단위 테스트 전체가 통과한다
+        check: {type: command, run: "make test"}
+      - id: A2
+        text: fake_feed가 만드는 여섯 Topic 메시지가 payloads 파서로 모두 받아지고, Fault Level 시나리오(0~40초 0, 40~70초 3, 70~160초 6, 그 뒤 9)와 image_path = products/<product_id>.jpg, STOP/START 적용과 last_command(retained 명령은 REJECTED)가 spec 07 5절대로다 (D-44)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_fake_feed.py::test_messages_parse tests/unit/test_fake_feed.py::test_scenario_levels tests/unit/test_fake_feed.py::test_image_path_matches_product_id tests/unit/test_fake_feed.py::test_control_updates_last_command"}
+      - id: A3
+        text: 환경 변수 없이 해석한 compose가 mosquitto·db·image-seed·factory-operations 서비스, 127.0.0.1의 8080·1883·5432 포트, Operations의 /data 읽기 전용 마운트를 가진다 (07 4절)
+        check:
+          type: command
+          run: |
+            out=$(env -u FOPS_HTTP_PORT -u FOPS_MQTT_PORT -u FOPS_DB_PORT -u COMPOSE_PROJECT_NAME docker compose -f compose.yaml config --format json) || exit 1
+            printf '%s' "$out" | python3 -c '
+            import json, sys
+            s = json.load(sys.stdin)["services"]
+            assert {"mosquitto", "db", "image-seed", "factory-operations"} <= set(s), sorted(s)
+            pub = lambda n: {(p.get("host_ip"), str(p.get("published")), int(p.get("target"))) for p in s[n].get("ports", [])}
+            assert ("127.0.0.1", "8080", 8080) in pub("factory-operations"), pub("factory-operations")
+            assert ("127.0.0.1", "1883", 1883) in pub("mosquitto"), pub("mosquitto")
+            assert ("127.0.0.1", "5432", 5432) in pub("db"), pub("db")
+            assert any(v.get("target") == "/data" and v.get("read_only") for v in s["factory-operations"].get("volumes", [])), s["factory-operations"].get("volumes")
+            print("compose defaults ok")
+            '
+      - id: A4
+        text: 개발용 compose(포트를 바꾼 별도 프로젝트)와 fake_feed로 띄운 앱의 스냅숏에 30초 안에 라인 RUNNING·PdM·스펙트럼·진동이 LIVE이고 검사 3건 이상, 그 이미지 응답이 200이며, POST /api/conveyor STOP 뒤 5초 안에 STOPPED와 OPERATOR_STOP·APPLIED가 보인다
+        check:
+          type: command
+          run: |
+            make venv >/dev/null || exit 1
+            export COMPOSE_PROJECT_NAME=fops-ops9b FOPS_HTTP_PORT=18290 FOPS_MQTT_PORT=11990 FOPS_DB_PORT=15490
+            d=$(mktemp -d); rc=1; feed=
+            cleanup() { [ -n "$feed" ] && kill -INT "$feed" 2>/dev/null; sleep 1; docker compose down -v >/dev/null 2>&1; }
+            docker compose up -d --build >"$d/up.log" 2>&1 || { tail -50 "$d/up.log"; cleanup; exit 1; }
+            ready=1
+            for i in $(seq 180); do [ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 1 http://127.0.0.1:18290/readyz)" = 200 ] && { ready=0; break; }; sleep 0.5; done
+            [ "$ready" -eq 0 ] || { echo "readyz timeout"; docker compose logs --tail 50 factory-operations; cleanup; exit 1; }
+            .venv/bin/python scripts/fake_feed.py --mqtt mqtt://127.0.0.1:11990 >"$d/feed.log" 2>&1 &
+            feed=$!
+            .venv/bin/python - <<'EOF' && rc=0
+            import json, sys, time, urllib.request
+            base = "http://127.0.0.1:18290"
+            snap = lambda: json.load(urllib.request.urlopen(base + "/api/snapshot", timeout=2))
+            end = time.time() + 30
+            while True:
+                s = snap()
+                st = {k: s[k].get("status") for k in ("line", "pdm", "spectrum", "vibration")}
+                if set(st.values()) == {"LIVE"} and s["line"].get("conveyor") == "RUNNING" and len(s["inspections"]) >= 3:
+                    break
+                if time.time() > end:
+                    print("not live:", st, len(s["inspections"])); sys.exit(1)
+                time.sleep(0.5)
+            r = urllib.request.urlopen(base + "/api/images/" + s["inspections"][0]["image_path"], timeout=2)
+            assert r.status == 200 and r.headers["Content-Type"].startswith("image/jpeg"), r.headers["Content-Type"]
+            req = urllib.request.Request(base + "/api/conveyor", data=b'{"command":"STOP"}', headers={"Content-Type": "application/json"}, method="POST")
+            assert urllib.request.urlopen(req, timeout=5).status == 202
+            end = time.time() + 5
+            while time.time() < end:
+                s = snap()
+                if s["line"].get("conveyor") == "STOPPED" and any(c["reason"] == "OPERATOR_STOP" and c["result"] == "APPLIED" for c in s["controls"]):
+                    print("dev compose + fake_feed ok"); sys.exit(0)
+                time.sleep(0.5)
+            print("STOP not reflected"); sys.exit(1)
+            EOF
+            [ "$rc" -eq 0 ] || { tail -30 "$d/feed.log"; docker compose logs --tail 50 factory-operations; }
+            cleanup
+            exit "$rc"
+      - id: A5
+        text: docs/COMPONENT.md 실행 절이 실제 실행 방법(compose 시연, make feed, 로컬 실행)이고 계획 표시가 없다
+        check: {type: command, run: "! grep -q '(계획)' docs/COMPONENT.md && grep -q 'docker compose up -d --build' docs/COMPONENT.md && grep -q 'make feed' docs/COMPONENT.md && grep -q 'docker compose down -v' docs/COMPONENT.md"}
+      - id: A6
+        text: make feed가 fake_feed.py를 실행한다 (07 6절)
+        check: {type: command, run: "make -n feed | grep -q 'scripts/fake_feed.py'"}
+    size: M
+  - id: OPS-10
+    milestone: M5
+    type: chore
+    title: PdM Result·PdM Spectrum·Alarm Event 확정 Shared commit을 contract_ref로 채택하고 파서·fixture·spec을 맞춤
+    why: 조율 agent가 Shared DOCUMENT_CHANGE(PdM Result, PdM Spectrum, Alarm Event) merge를 알린 뒤 시작한다. integration의 계약 검사가 Shared 한 곳을 기준으로 하도록 이 Component도 그 commit을 기준으로 삼고, A-05·A-06 가정과 확정본의 형식 차이를 PdM 형식 의존 자리(payloads 파서, fixture, fake_feed)에서 맞춘다 (조율 C-04·C-05, spec D-04, C-01)
+    depends_on: [OPS-2]
+    contract: [docs/INTERFACES.md, docs/CONVENTIONS.md]
+    scope: [SHARED_CONFIG.json, src/factory_operations/mqtt/payloads.py, tests/unit/test_payloads.py, tests/fixtures/payloads/**, scripts/fake_feed.py, tests/unit/test_fake_feed.py, docs/spec/02-mqtt.md, docs/spec/07-runtime.md, docs/spec/AGREEMENTS.md, docs/spec/README.md, docs/spec/DECISIONS.md, docs/COMPONENT.md]
+    acceptance:
+      - id: A1
+        text: SHARED_CONFIG.json의 contract_ref가 Shared main에 포함된 d0c997c 이후 commit의 전체 SHA이고, 다른 필드는 main과 같다 (C-05)
+        check:
+          type: command
+          run: |
+            sha=$(jq -er '.contract_ref | strings | select(test("^[0-9a-f]{40}$"))' SHARED_CONFIG.json) || { echo "contract_ref not a full SHA"; exit 1; }
+            test "$(git show origin/main:SHARED_CONFIG.json | jq -S 'del(.contract_ref)')" = "$(jq -S 'del(.contract_ref)' SHARED_CONFIG.json)" || { echo "other fields changed"; exit 1; }
+            repo=dltndn-personal-project/smart-factory-shared-repository
+            s1=$(gh api "repos/$repo/compare/$sha...main" --jq .status) || exit 1
+            s2=$(gh api "repos/$repo/compare/d0c997c97129141d9853a42ce6e0d1f8f7309ae9...$sha" --jq .status) || exit 1
+            echo "main vs contract_ref: $s1, contract_ref vs d0c997c: $s2"
+            case "$s1" in ahead|identical) ;; *) exit 1;; esac
+            test "$s2" = ahead
+      - id: A2
+        text: 저장소 검사가 원격 비교까지 통과한다
+        check: {type: command, run: "python3 agent/core/tools/validate.py --remote"}
+      - id: A3
+        text: contract_ref의 Shared INTERFACES 목록에서 PdM Result, PdM Spectrum(factory/pdm/spectrum), Alarm Event 행의 상태가 확정이다
+        check:
+          type: command
+          run: |
+            sha=$(jq -r .contract_ref SHARED_CONFIG.json); f=$(mktemp)
+            gh api --method GET repos/dltndn-personal-project/smart-factory-shared-repository/contents/docs/INTERFACES.md -f ref="$sha" -H 'Accept: application/vnd.github.raw+json' > "$f" || exit 1
+            for t in pdm/result pdm/spectrum alarm/event; do grep -Eq "^\|.*\`factory/$t\`.*\| *확정 *\|\$" "$f" || { echo "not confirmed: $t"; exit 1; }; done
+      - id: A4
+        text: contract_ref INTERFACES의 PdM Result·Alarm Event 예시 JSON이 fixture(shared_pdm_result.json, shared_alarm_event.json)와 같고, 파서가 PdM Result·PdM Spectrum 확정 예시 fixture를 받으며, build_alarm의 키 집합이 Shared Alarm Event 예시와 같다 (C-01)
+        check:
+          type: command
+          run: |
+            sha=$(jq -r .contract_ref SHARED_CONFIG.json); f=$(mktemp)
+            gh api --method GET repos/dltndn-personal-project/smart-factory-shared-repository/contents/docs/INTERFACES.md -f ref="$sha" -H 'Accept: application/vnd.github.raw+json' > "$f" || exit 1
+            python3 - "$f" <<'EOF' || exit 1
+            import json, re, sys
+            blocks = []
+            fence = "`" * 3
+            for body in re.findall(fence + r"json\n(.*?)" + fence, open(sys.argv[1]).read(), re.S):
+                try:
+                    blocks.append(json.loads(body))
+                except ValueError:
+                    pass
+            bad = [n for n in ("shared_pdm_result.json", "shared_alarm_event.json") if json.load(open("tests/fixtures/payloads/" + n)) not in blocks]
+            print("not a Shared example:", bad)
+            sys.exit(1 if bad else 0)
+            EOF
+            make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_shared_pdm_result_example tests/unit/test_payloads.py::test_shared_pdm_spectrum_example tests/unit/test_payloads.py::test_build_alarm_matches_shared_example
+      - id: A5
+        text: 단위 테스트 전체가 통과한다 (fake_feed가 있으면 그 메시지도 새 파서로 받아진다)
+        check: {type: command, run: "make test"}
+      - id: A6
+        text: spec README·AGREEMENTS·COMPONENT.md가 채택한 SHA를 적고, README에서 PdM 가정 문구가 사라졌다
+        check: {type: command, run: "sha=$(jq -r .contract_ref SHARED_CONFIG.json) && grep -q \"$sha\" docs/spec/AGREEMENTS.md && grep -q \"$sha\" docs/spec/README.md && grep -q \"$sha\" docs/COMPONENT.md && ! grep -q '생산자 확정 전 가정' docs/spec/README.md"}
+    size: M
+  - id: HUM-1
+    milestone: M6
+    type: chore
+    title: Dashboard 확인 (M-01~M-10)
+    why: 화면 배치·색·문구·갱신 모양·렌더링 시간·끊김 표시는 자동 검사로 확인할 수 없다. 시스템 전체 시연 확인은 integration 마지막 milestone에서 따로 한다 (C-10, spec D-03, HUMAN.md H-2)
+    depends_on: [OPS-9B]
+    scope: [docs/reviews/HUM-1.md]
+    owner: human
+    acceptance:
+      - id: M01
+        text: 첫 화면
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-01. 결과는 docs/reviews/HUM-1.md"}
+      - id: M02
+        text: 갱신과 렌더링 시간
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-02. 결과는 docs/reviews/HUM-1.md"}
+      - id: M03
+        text: 라인
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-03. 결과는 docs/reviews/HUM-1.md"}
+      - id: M04
+        text: 설비 상태
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-04. 결과는 docs/reviews/HUM-1.md"}
+      - id: M05
+        text: Interlock
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-05. 결과는 docs/reviews/HUM-1.md"}
+      - id: M06
+        text: 재가동
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-06. 결과는 docs/reviews/HUM-1.md"}
+      - id: M07
+        text: 품질
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-07. 결과는 docs/reviews/HUM-1.md"}
+      - id: M08
+        text: 상관관계
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-08. 결과는 docs/reviews/HUM-1.md"}
+      - id: M09
+        text: 끊김 표시
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-09. 결과는 docs/reviews/HUM-1.md"}
+      - id: M10
+        text: 모양(창 폭, 어두운 테마, Safari)
+        check: {type: manual, how: "docs/spec/08-verification.md 6절 M-10. 결과는 docs/reviews/HUM-1.md"}
     size: M
