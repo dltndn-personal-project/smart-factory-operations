@@ -17,7 +17,8 @@ steps:
   note: 재시작 뒤 /readyz 200까지 1.12초(첫 실행)
 - do: make docker-test 전체 시간 확인(300초 이하), make test
   check: A3
-  done: false
+  done: true
+  note: make docker-test 19 passed, 86초. make test 156 passed
 attempts: {}
 evidence: {}
-next_action: step 4 전체 시간
+next_action: agent.py verify
