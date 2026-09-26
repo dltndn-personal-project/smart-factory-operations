@@ -9,7 +9,9 @@ steps:
 - do: 90-shared 1절로 cb6dc3c INTERFACES(PdM Result, PdM Spectrum, Alarm Event)·CONVENTIONS를
     읽고 계획 5.1절 표와 비교(의미 차이면 멈춤)
   check: 5.1절 밖 차이 없음을 비교표로 PR 본문에
-  done: false
+  done: true
+  note: cb6dc3c INTERFACES·CONVENTIONS를 읽음. 5.1절 밖 차이 없음, 의미(윈도우 끝 timestamp, retain
+    false, rpm==0 미발행, 재가동 chunk+1초)는 A-05·A-06과 같음
 - do: 'fixture: shared_pdm_result.json·shared_alarm_event.json(원문), shared_pdm_spectrum.json(스칼라
     원문 + seed 고정 501개×6), 가정 fixture 교체, pdm.py 템플릿, SOURCES.md'
   check: A3
@@ -30,5 +32,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 2: 90-shared 1절로 cb6dc3c INTERFACES(PdM Result, PdM Spectrum, Alarm
-  Event)·CONVENTIONS를 읽고 계획 5.1절 표와 비교(의미 차이면 멈춤)'
+next_action: 'step 3: fixture: shared_pdm_result.json·shared_alarm_event.json(원문),
+  shared_pdm_spectrum.json(스칼라 원문 + seed 고정 501개×6), 가정 fixture 교체, pdm.py 템플릿, SOURCES.md'
