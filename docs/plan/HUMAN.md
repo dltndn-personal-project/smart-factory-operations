@@ -17,7 +17,7 @@ Shared DOCUMENT_CHANGE(Alarm Event 포함) 게시·merge와 PR merge는 조율 a
 |---|---|---|
 | OPS-1 | 인터넷(pip) | 첫 `make venv`(numpy·scipy wheel) |
 | OPS-2, OPS-10 | `gh auth status` 로그인 | Shared·PdM 원문을 원격 Contents API로 읽는다 |
-| OPS-4 | Docker Desktop 실행, `timescale/timescaledb:2.30.1-pg17`(없으면 인터넷) | Docker 연동 테스트. 이후 모든 task의 verify에 들어간다 |
+| OPS-4A | Docker Desktop 실행, `timescale/timescaledb:2.30.1-pg17`(없으면 인터넷) | Docker 연동 테스트. 이후 모든 task의 verify에 들어간다 |
 | OPS-7A | `eclipse-mosquitto:2.1.2-alpine`(없으면 인터넷) | broker 연동 테스트 |
 | OPS-9A, OPS-9B | Docker Desktop, 인터넷(`python:3.12-slim`, 이미지 안 pip) | 이미지 빌드. OPS-9A 뒤 모든 task의 verify에 smoke가 들어간다 |
 | 모든 task | `gh auth status` 로그인 | push, PR, `validate.py --remote` |

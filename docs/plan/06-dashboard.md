@@ -20,7 +20,7 @@
     type: feature
     title: 스냅숏, HTTP API, 이미지 응답, 예시 이미지 fixture
     why: 화면과 갱신 지연 측정·integration 관찰이 /api/snapshot 하나를 보고, 흐름 연동 테스트가 /readyz와 스냅숏으로 처리 완료를 확인한다 (spec 06 1~4절, A-09·A-10, D-15·D-23·D-33)
-    depends_on: [OPS-4]
+    depends_on: [OPS-4B]
     scope: [src/factory_operations/web/__init__.py, src/factory_operations/web/api.py, src/factory_operations/web/snapshot.py, src/factory_operations/web/images.py, src/factory_operations/web/static/index.html, tests/unit/test_snapshot.py, tests/unit/test_api.py, tests/fixtures/images/**, docs/spec/06-dashboard.md, docs/spec/DECISIONS.md]
     acceptance:
       - id: A1

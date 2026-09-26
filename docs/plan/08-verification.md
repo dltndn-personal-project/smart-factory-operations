@@ -1,7 +1,7 @@
 # 08 검증 계획 (M3, M6)
 
 > 목적: `agent/config.yaml` verify 명령을 어느 task가 언제 넣는지와 그 비용, acceptance 명령의 규칙과 고정 포트, OPS-7B(지연 측정)와 사람 task HUM-1의 PLAN 정의와 기록 방법.
-> 읽어야 할 때: verify 명령을 추가하는 task(OPS-1, OPS-4, OPS-9A), OPS-7B, 사람 task를 준비·기록할 때. 같이 읽을 spec: `docs/spec/08-verification.md`.
+> 읽어야 할 때: verify 명령을 추가하는 task(OPS-1, OPS-4A, OPS-9A), OPS-7B, 사람 task를 준비·기록할 때. 같이 읽을 spec: `docs/spec/08-verification.md`.
 
 ## 1. verify 명령 추가 순서
 
@@ -11,7 +11,7 @@
 |---|---|---|---|---|
 | 기존 | BOOT-1 | `agent-files` | `python3 agent/core/tools/validate.py` | 5초 미만 |
 | 1 | OPS-1 | `unit` | `make test` | 30초 미만(첫 실행 pip 설치 +1~2분) |
-| 2 | OPS-4 | `docker` | `make docker-test` | OPS-4 약 1분 → OPS-7B 뒤 약 3분(상한 300초, OPS-7B A3) |
+| 2 | OPS-4A | `docker` | `make docker-test` | OPS-4A 약 30초 → OPS-7B 뒤 약 3분(상한 300초, OPS-7B A3) |
 | 3 | OPS-9A | `smoke` | `make smoke` | 약 1.5분(첫 이미지 빌드는 수 분 더) |
 
 - 추정 시간은 계획 시점의 어림이다. 실제 값은 각 task PR 본문에 적는다.
@@ -20,7 +20,7 @@
 | 구간 | 공통 verify | 공통 비용(추정) |
 |---|---|---|
 | OPS-1~OPS-3B | agent-files, unit | 30초 미만 |
-| OPS-4~OPS-7A | + docker | 1.5~2.5분 |
+| OPS-4A~OPS-7A | + docker | 1~2.5분 |
 | OPS-7B, OPS-8 | + docker(지연 측정 포함) | 3~3.5분 |
 | OPS-9A 뒤(OPS-9B, OPS-10, FIX) | + smoke | 4.5~5분 |
 
@@ -44,16 +44,16 @@
 | smoke(OPS-9A A1, verify) | Docker 임의 포트 | 임의 | 임의 | `fops-smoke-<hex8>` |
 | 개발·HUM-1 | 8080 | 1883 | 5432 | `factory-operations`(기본) |
 
-## 3. OPS-7B 지연 측정 (M3)
+## 3. OPS-7B broker 재연결과 지연 측정 (M3)
 
 ```yaml
   - id: OPS-7B
     milestone: M3
     type: feature
-    title: Interlock 지연(C-05)과 Dashboard 갱신 지연(C-08) 측정 테스트
-    why: CRITICAL 판정 뒤 1초 안에 STOP이 나가고(Component 목표), 입력이 5초 안에 화면 데이터에 반영된다는 과제 기준을 정해진 방법으로 매 변경마다 잰다 (C-05, C-08, spec 08 4절, A-10·A-11, D-34)
+    title: broker 재시작 복구, Interlock 지연(C-05), Dashboard 갱신 지연(C-08) 테스트
+    why: broker가 재시작돼도 앱이 스스로 복구하고, CRITICAL 판정 뒤 1초 안에 STOP이 나가며(Component 목표), 입력이 5초 안에 화면 데이터에 반영된다는 과제 기준을 정해진 방법으로 매 변경마다 잰다 (C-05, C-08, spec 02 5절, 08 3.6·4절, A-10·A-11, D-34)
     depends_on: [OPS-7A]
-    scope: [tests/docker/test_interlock_latency.py, tests/docker/test_dashboard_latency.py, tests/docker/conftest.py, docs/spec/DECISIONS.md]
+    scope: [tests/docker/test_broker_restart.py, tests/docker/test_interlock_latency.py, tests/docker/test_dashboard_latency.py, tests/docker/conftest.py, docs/spec/DECISIONS.md]
     acceptance:
       - id: A1
         text: 5회 반복에서 재가동 기준 시각 뒤 CRITICAL PdM Result 발행부터 harness의 STOP(reason INTERLOCK_CRITICAL) 수신까지 최댓값이 1.0초 이하이고 매회 Alarm Event도 받는다 (C-05, 08 4.2절)
@@ -64,17 +64,21 @@
       - id: A3
         text: Docker 연동 테스트 전체가 300초 안에 통과한다 (spec 08 5절 "약 3분")
         check: {type: metric, run: "s=$(date +%s); make docker-test >/dev/null 2>&1 || { echo failed; exit 1; }; echo $(( $(date +%s) - s ))", max: 300}
-    size: S
+      - id: A4
+        text: 자기 Mosquitto 컨테이너(빈 포트 고정)를 docker restart하면 15초 안에 /readyz가 200으로 돌아오고 그 뒤 보낸 PdM Result가 equipment_state에 기록된다 (02 5절, 08 3.6절, D-43)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_broker_restart.py::test_broker_restart_recovers"}
+    size: M
 ```
 
 단계 개요:
 1. `test_interlock_latency.py`: 08 4.2절(매회 `STOPPED` → `RUNNING` 새 timestamp, `wait_snapshot`으로 `reference_time` 확인, 발행 직전 monotonic, STOP 수신 시각, APPLIED·STOPPED 응답, `pending_stop == null` 확인). → A1
 2. `test_dashboard_latency.py`: 08 4.1절 부하와 반영 조건 표 일곱 가지, 0.2초 간격 스냅숏, `r_max`, 이벤트 종류별 p50·p95·max 출력. → A2
-3. 전체 시간 확인. 넘으면 fixture 재사용(세션 범위)부터 줄이고, 측정 기준(60초, 5.0초, 1.0초)은 줄이지 않는다. → A3
+3. `test_broker_restart.py`: 자기 broker 컨테이너(빈 포트 고정)로 `running_app`을 띄우고 `docker restart` → `/readyz` 503 → 15초 안 200 → PdM Result 기록 확인. → A4
+4. 전체 시간 확인. 넘으면 fixture 재사용(세션 범위)부터 줄이고, 측정 기준(60초, 5.0초, 1.0초)은 줄이지 않는다. → A3
 
-읽을 spec: 08 4절, `AGREEMENTS.md` A-10·A-11, 03 3.2절, D-34.
+읽을 spec: 08 3.6·4절, 02 5절, `AGREEMENTS.md` A-10·A-11, 03 3.2절, D-34·D-43.
 
-- `wait_snapshot`, `harness`, `running_app`은 OPS-7A의 fixture를 쓴다. fixture를 고쳐야 하면 `tests/docker/conftest.py` 안에서만 고친다.
+- `wait_snapshot`, `harness`, `running_app`은 OPS-7A의 fixture를 쓰고, PdM 메시지는 `tests/fixtures/payloads/pdm.py`로 만든다(D-39). fixture를 고쳐야 하면 `tests/docker/conftest.py` 안에서만 고친다.
 
 ## 4. 사람 task
 

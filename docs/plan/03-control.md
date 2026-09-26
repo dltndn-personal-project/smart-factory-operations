@@ -14,7 +14,7 @@ spec 00 6절의 OPS-3(판단 로직)은 모듈 다섯 개와 시나리오 23개�
 
 - 워커 **스레드 루프**(큐에서 꺼내기, 0.1초 tick 호출, 종료)는 OPS-7A가 `worker.py`에 더한다. OPS-3B의 `Processor`는 스레드·큐 없이 직접 부를 수 있는 함수들이다(시나리오 테스트가 이것을 부른다, spec 03 6절).
 - `LineTracker.update()`는 DB 작업을 만들지 않고 결과(기록할 변화 여부, 재가동 이벤트, 기준 시각 변경)를 돌려준다. `Processor`가 그 결과로 DB 작업과 Alarm 초기화를 한다. 그래서 OPS-3A는 DB 작업 타입을 몰라도 된다.
-- DB 쓰기 작업 타입은 `store/jobs.py`의 순수 dataclass다. 각 작업은 spec 05 2절 표의 이름을 `kind`(`sensor`, `line_change`, `product`, `inspection`, `equipment`, `alarm`, `control_issued`, `control_result`, `control_observed`)로 갖고, SQL에 필요한 값(Payload timestamp와 Operations 시각은 UTC datetime)을 담는다. OPS-4의 DB 스레드가 소비한다. OPS-3B가 만드는 이유: 작업을 만드는 쪽이 M1에 있어야 M1이 M2에 의존하지 않는다(D-37).
+- DB 쓰기 작업 타입은 `store/jobs.py`의 순수 dataclass다. 각 작업은 spec 05 2절 표의 이름을 `kind`(`sensor`, `line_change`, `product`, `inspection`, `equipment`, `alarm`, `control_issued`, `control_result`, `control_observed`)로 갖고, SQL에 필요한 값(Payload timestamp와 Operations 시각은 UTC datetime)을 담는다. OPS-4B의 DB 스레드가 소비한다. OPS-3B가 만드는 이유: 작업을 만드는 쪽이 M1에 있어야 M1이 M2에 의존하지 않는다(D-37).
 
 ## 2. task
 

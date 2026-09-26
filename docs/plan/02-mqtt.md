@@ -8,7 +8,7 @@
 | task | 선행 | size | 내용 |
 |---|---|---|---|
 | OPS-2 | OPS-1 | M | `topics.py`, `payloads.py`(파서 6종, `build_conveyor`, `build_alarm`, 스펙트럼 패널), Payload fixture |
-| OPS-7A | OPS-5, OPS-6 | M | `client.py`(paho), 워커 스레드 루프, `app.py` 조립(lifespan), Docker 앱 fixture, 흐름 연동 테스트 |
+| OPS-7A | OPS-5, OPS-6 | M | `client.py`(paho), 워커 스레드 루프, `app.py` 조립(lifespan), Docker 앱 fixture, 흐름 연동 테스트. broker 재시작 테스트는 OPS-7B(D-45) |
 | OPS-10 | OPS-2 + 조율 agent 알림 | M | `contract_ref` 채택, Shared 확정본과 파서·fixture·fake_feed·spec 맞춤 |
 
 spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 흐름 연동 테스트(C-04~C-06)가 `/readyz`와 `/api/snapshot`(`wait_snapshot`)을 쓰므로 HTTP API를 먼저 만들고(OPS-6) MQTT 조립과 연동 테스트를 뒤로(OPS-7A) 옮겼다(D-37).
@@ -51,6 +51,9 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
       - id: A9
         text: Payload fixture가 9개 이상이고, 출처 기록(SOURCES.md)에 Shared d0c997c와 PdM db9b7e7 commit이 있다
         check: {type: command, run: "test \"$(ls tests/fixtures/payloads/*.json | wc -l)\" -ge 9 && grep -q d0c997c97129141d9853a42ce6e0d1f8f7309ae9 tests/fixtures/payloads/SOURCES.md && grep -q db9b7e79ce2329104d611ab52c509e74c6b927dd tests/fixtures/payloads/SOURCES.md"}
+      - id: A10
+        text: 테스트·smoke용 PdM 메시지 생성 함수(tests/fixtures/payloads/pdm.py)가 PdM fixture를 템플릿으로 써서 키 집합이 fixture와 같고, 만든 메시지가 파서로 받아진다 (D-39)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_pdm_helpers_match_fixtures"}
     size: M
 ```
 
@@ -67,9 +70,10 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
 3. `payloads.py` 공통 규칙(3.1절)과 `rel_path`. → A3, A7
 4. 파서 6종과 결과 dataclass(`SensorChunk`, `LineStatus`/`LineOffline`, `ProductCreated`, `VisionResult`, `PdmResult`, `SpectrumPanels`), `Rejected(reason)`. 진동 배열은 numpy float32와 `isfinite`. → A2, A4, A5
 5. `build_conveyor`, `build_alarm`, 직렬화 함수(4.1절). `build_alarm`의 입력은 OPS-3B가 만들 Alarm 값 객체다. 필드 이름만 A-02로 고정하고 dataclass는 여기서 정의한다. → A6
-6. `tests/unit/test_payloads.py`, `test_topics.py`, `make test`. → A1
+6. `tests/fixtures/payloads/pdm.py`: `pdm_result(sensor_id, timestamp, state, health_index, anomaly_score, **바꿀 값)`과 `pdm_spectrum(sensor_id, timestamp, **바꿀 값)`. PdM fixture JSON을 읽어 값만 바꾼다(필드 이름을 코드에 다시 쓰지 않는다). 테스트는 `from fixtures.payloads import pdm`(pytest가 `tests/`를 sys.path에 넣는다), `scripts/smoke.py`는 파일 경로로 불러온다. → A10
+7. `tests/unit/test_payloads.py`, `test_topics.py`, `make test`. → A1
 
-- `PdmResult`·`SpectrumPanels`를 만드는 두 파서가 PdM 형식에 기대는 유일한 코드다(01 계획 1절, D-39). 다른 모듈에서 PdM Payload의 JSON 키를 직접 읽지 않는다.
+- `PdmResult`·`SpectrumPanels`를 만드는 두 파서가 PdM 형식에 기대는 유일한 제품 코드다(01 계획 1절, D-39). 다른 모듈에서 PdM Payload의 JSON 키를 직접 읽지 않는다. 뒤 task의 연동 테스트(OPS-7A·7B)와 smoke(OPS-9A)는 PdM 메시지를 `pdm.py`로만 만든다.
 
 읽을 spec: 02 2~4절, `AGREEMENTS.md` A-01~A-07, 01 5절(`parse_ts`), 08 2·3.2절, D-32.
 
@@ -97,12 +101,9 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
         text: POST /api/conveyor START가 202이고 harness가 reason OPERATOR_START인 Conveyor Control을 받으며 control 행이 생긴다 (03 3.3절)
         check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_app_flow.py::test_operator_start_published"}
       - id: A5
-        text: Mosquitto 컨테이너 docker restart 뒤 15초 안에 /readyz가 200이고 그 뒤 보낸 PdM Result가 equipment_state에 기록된다 (02 5절, 08 3.6절)
-        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/docker/test_broker_restart.py::test_broker_restart_recovers"}
-      - id: A6
         text: MQTT가 끊겨 있으면 publish가 paho를 부르지 않고 False를 돌려주고, on_message는 파싱 없이 inbound 큐에 넣기만 하며 큐가 가득 차면 버린 수를 센다 (01 2절, 02 1·4.2절)
         check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_mqtt_client.py::test_publish_skipped_when_disconnected tests/unit/test_mqtt_client.py::test_on_message_only_enqueues tests/unit/test_mqtt_client.py::test_inbound_overflow_counted"}
-      - id: A7
+      - id: A6
         text: Broker·DB 없이 기동한 serve가 /readyz에 503(mqtt_connected false, db_ok false)으로 답하고, SIGTERM 뒤 10초 안에 끝난다 (01 7절, 06 2절)
         check:
           type: command
@@ -122,7 +123,7 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
             if kill -0 "$pid" 2>/dev/null; then echo "not stopped within 10s"; kill -9 "$pid"; ok=1; fi
             [ "$ok" -eq 0 ] || cat "$d/serve.log"
             exit "$ok"
-      - id: A8
+      - id: A7
         text: paho·psycopg·FastAPI를 import하는 모듈이 각각 mqtt/client.py, store/db.py, web/api.py 하나다 (01 1절)
         check:
           type: command
@@ -135,12 +136,12 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
 ```
 
 단계 개요:
-1. `mqtt/client.py`: 02 1절 기동 순서, `on_connect` 구독 한 번, `on_message` → `Inbound` `put_nowait`(가득 차면 카운터·`queue_overflow` 로그), `publish()`(끊김이면 False, 반환 코드 확인). `mqtt_connected`를 StateStore에 둔다. → A6
+1. `mqtt/client.py`: 02 1절 기동 순서, `on_connect` 구독 한 번, `on_message` → `Inbound` `put_nowait`(가득 차면 카운터·`queue_overflow` 로그), `publish()`(끊김이면 False, 반환 코드 확인). `mqtt_connected`를 StateStore에 둔다. → A5
 2. `domain/worker.py`에 스레드 루프 추가: `get(timeout=0.1)` → OPS-3B `Processor.handle`, 매 0.1초 `tick`, 종료 표시(01 2절). 파싱은 워커에서.
-3. `app.py` lifespan(01 7절 순서): StateStore → DB 스레드(OPS-4, 요약·상관분석 콜백을 StateStore에 연결, 상관분석 계산은 OPS-5 함수) → 워커 → MQTT → HTTP(OPS-6 `create_app`에 inbound 큐 전달). 종료 역순과 제한 시간. `__main__.py serve`. → A7, A8
-4. `tests/docker/conftest.py`에 `mqtt_broker`, `running_app`(uvicorn을 스레드에서 빈 포트로, `/readyz` 200까지 15초), `harness`(SUBACK·PUBACK 대기), `wait_snapshot`. 재시작 테스트용 컨테이너는 호스트 포트를 테스트가 골라 고정한다(`08-verification.md` 2절, D-43).
-5. `test_app_flow.py`(3.6절 흐름, 운영자 START), `test_broker_restart.py`. → A3, A4, A5
-6. `tests/unit/test_mqtt_client.py`(paho client 객체를 가짜로 바꿔 끼움). → A6
+3. `app.py` lifespan(01 7절 순서): StateStore → DB 스레드(OPS-4B, 요약·상관분석 콜백을 StateStore에 연결, 상관분석 계산은 OPS-5 함수) → 워커 → MQTT → HTTP(OPS-6 `create_app`에 inbound 큐 전달). 종료 역순과 제한 시간. `__main__.py serve`. → A6, A7
+4. `tests/docker/conftest.py`에 `mqtt_broker`(빈 포트 고정, D-43), `running_app`(uvicorn을 스레드에서 빈 포트로, `/readyz` 200까지 15초. broker·DB 주소를 인자로 받아 OPS-7B의 재시작 테스트가 자기 broker 컨테이너로 쓸 수 있게), `harness`(SUBACK·PUBACK 대기), `wait_snapshot`, PdM 메시지는 `tests/fixtures/payloads/pdm.py`로 만든다(D-39).
+5. `test_app_flow.py`(3.6절 흐름, 운영자 START). → A3, A4
+6. `tests/unit/test_mqtt_client.py`(paho client 객체를 가짜로 바꿔 끼움). → A5
 7. `make test`, `make docker-test`. → A1, A2
 
 읽을 spec: 01 2·3·7절, 02 1·4·5절, 03 2절(처리 순서)·3.3절, 05 3절(DB 스레드 시작·종료), 06 2절(`/readyz`), 08 2·3.6절, D-14·D-16·D-20·D-33.
@@ -152,8 +153,8 @@ PdM Result·PdM Spectrum 형식이 Shared에서 바뀌면 고칠 곳은 다음�
 | 자리 | 만드는 task | 내용 |
 |---|---|---|
 | `mqtt/payloads.py` `parse_pdm_result`, `parse_pdm_spectrum` | OPS-2 | JSON → `PdmResult`, `SpectrumPanels` |
-| `tests/fixtures/payloads/pdm_*.json`, `tests/unit/test_payloads.py`의 PdM 테스트 | OPS-2 | 가정 형식 예시 |
-| `scripts/fake_feed.py`의 PdM 흉내, `tests/unit/test_fake_feed.py` | OPS-9B | 개발·사람 확인용 입력 |
+| `tests/fixtures/payloads/pdm_*.json`, `tests/fixtures/payloads/pdm.py`, `tests/unit/test_payloads.py`의 PdM 테스트 | OPS-2 | 가정 형식 예시와 테스트·smoke용 메시지 생성 함수. OPS-7A·7B의 Docker 테스트와 OPS-9A smoke는 PdM 메시지를 이 함수로만 만든다 |
+| `scripts/fake_feed.py`의 PdM 흉내, `tests/unit/test_fake_feed.py` | OPS-9B | 개발·사람 확인용 입력. 그 시점 PdM fixture와 키 집합이 같은지 `test_pdm_keys_match_fixture`가 본다. OPS-10이 먼저 끝났으면 fixture가 이미 확정본이라 OPS-9B가 확정 형식으로 만든다 |
 | `docs/spec/02-mqtt.md` 3.6·3.7절, `AGREEMENTS.md` A-01·A-05·A-06, `07-runtime.md` 5절 | spec | 가정의 원본 |
 
 **의미**가 다르면(윈도우 끝이 아닌 `timestamp`, retain true, 정지 중 발행 등) 재가동 기준 시각(03 1.2절)과 stale 규칙(06 4절)이 영향을 받는다. 이것은 OPS-10에서 고치지 않고 멈춘다(`contract`). 조율 agent가 PdM과 operations 중 어느 쪽을 맞출지 정한다(A-05).
@@ -230,7 +231,7 @@ PdM Result·PdM Spectrum 형식이 Shared에서 바뀌면 고칠 곳은 다음�
 1. 알림의 SHA로 `SHARED_CONFIG.json` `contract_ref`만 바꾼다. → A1
 2. `90-shared.md` 1절 명령으로 그 commit의 `docs/INTERFACES.md`, `docs/CONVENTIONS.md`를 읽고 A-01·A-02·A-05·A-06과 비교표를 만든다(PR 본문). **의미 차이**(4절)가 있으면 멈춘다(`contract`). Alarm Event가 A-02와 다르면 멈춘다(생산자 확정본을 Shared가 바꾼 것이므로 조율 agent가 정한다). → A3
 3. 확정 예시로 fixture `shared_pdm_result.json`, `shared_alarm_event.json`(원문 그대로), `shared_pdm_spectrum.json`(원문이 유효한 JSON이면 그대로, 배열을 줄여 적었으면 스칼라 필드 그대로 + 원문이 정한 길이의 seed 고정 배열)을 만들고 `SOURCES.md`에 출처를 적는다. 기존 `pdm_*.json` 가정 fixture는 확정본과 다르면 확정본에 맞추거나 지운다.
-4. `payloads.py`의 두 파서를 확정본에 맞추고(필드 이름·필수 여부·스펙트럼 계열 구성) 테스트 세 개를 추가한다. → A4
+4. `payloads.py`의 두 파서와 `tests/fixtures/payloads/pdm.py`의 템플릿(PdM fixture)을 확정본에 맞추고(필드 이름·필수 여부·스펙트럼 계열 구성) 테스트 세 개를 추가한다. 연동 테스트·smoke는 `pdm.py`를 쓰므로 따로 고치지 않는다(`make docker-test`·`make smoke` verify가 확인). → A4
 5. `scripts/fake_feed.py`가 있으면(OPS-9B 뒤) PdM 흉내를 확정 형식으로 바꾼다. `make test`가 `test_fake_feed.py`로 확인한다. → A5
 6. spec: `02-mqtt.md` 3.6·3.7절, `AGREEMENTS.md` 머리말·A-01·A-05·A-06(가정 → 확정 commit), `README.md` 머리말과 6절, `07-runtime.md` 5절(fake_feed 형식), `docs/COMPONENT.md` 외부 의존 절. 결정이 있으면 DECISIONS 새 ID. → A6
 7. `validate.py --remote`. → A2

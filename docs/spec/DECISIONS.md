@@ -249,7 +249,7 @@
 
 ### D-39 PdM 형식 의존의 위치와 OPS-10
 - 문맥: PdM Result·PdM Spectrum은 PdM spec과 Shared DOCUMENT_CHANGE로 나중에 확정된다(조율 C-04·C-12). 그 전에 OPS-1~OPS-9B를 A-05·A-06 가정으로 진행한다.
-- 결정: PdM 형식(필드 이름·필수 여부·스펙트럼 계열 구성)에 기대는 코드는 `mqtt/payloads.py`의 두 파서, `tests/fixtures/payloads/pdm_*.json`, `scripts/fake_feed.py`의 PdM 흉내에만 둔다. `domain/`·`web/`은 파싱된 객체만 쓴다. OPS-10은 조율 agent의 Shared merge 알림을 착수 조건으로 하고 `depends_on`은 OPS-2뿐이라 다른 task를 막지 않는다. OPS-10은 그 자리와 spec만 고치고, `timestamp` 의미·retain·정지 중 동작처럼 **의미**가 다르면 멈춘다(조율 agent가 정함, A-05).
+- 결정: PdM 형식(필드 이름·필수 여부·스펙트럼 계열 구성)에 기대는 코드는 `mqtt/payloads.py`의 두 파서, `tests/fixtures/payloads/`(PdM fixture와 fixture를 템플릿으로 쓰는 테스트·smoke용 생성 함수 `pdm.py`), `scripts/fake_feed.py`의 PdM 흉내에만 둔다. Docker 테스트와 smoke는 PdM 메시지를 `pdm.py`로만 만들고, fake_feed는 PdM fixture와 키 집합이 같은지 단위 테스트로 확인한다(Codex 리뷰 2·3). `domain/`·`web/`은 파싱된 객체만 쓴다. OPS-10은 조율 agent의 Shared merge 알림을 착수 조건으로 하고 `depends_on`은 OPS-2뿐이라 다른 task를 막지 않는다. OPS-10은 그 자리와 spec만 고치고, `timestamp` 의미·retain·정지 중 동작처럼 **의미**가 다르면 멈춘다(조율 agent가 정함, A-05).
 - 영향: `docs/plan/02-mqtt.md` 4·5절, `docs/plan/01-core.md` 1절
 
 ### D-40 구현 task의 spec 수정 범위
@@ -272,9 +272,18 @@
 - 선택지: (a) 임의 포트 유지, 재시작 뒤 앱 설정을 바꿈 (b) 테스트가 빈 포트를 골라 고정 매핑 (c) `docker pause`로 대체
 - 결정: (b). 재시작 테스트는 자기 컨테이너를 쓴다. smoke는 재시작이 없어 임의 포트를 그대로 쓴다.
 - 이유: (a)는 재연결을 시험하지 않는다. (c)는 TCP 연결이 끊기지 않아 재연결 경로를 타지 않는다. (b)는 빈 포트를 고른 뒤 `docker run`까지의 짧은 경쟁만 남는다.
-- 영향: `08-verification.md` 2절, `docs/plan/05-storage.md` 1절, `docs/plan/08-verification.md` 2절
+- 영향: `08-verification.md` 2절, `docs/plan/05-storage.md` 1절, `docs/plan/08-verification.md` 2·3절
 
 ### D-44 fake_feed 자체 검사와 개발 환경 확인
 - 결정: `tests/unit/test_fake_feed.py`가 fake_feed의 메시지가 파서로 받아지는지·시나리오·이미지 경로·명령 적용을 확인하고, OPS-9B acceptance가 개발용 compose + fake_feed로 스냅숏과 STOP 적용을 자동 확인한다.
 - 이유: HUM-1은 이 환경으로 한다. 사람이 20분을 쓰기 전에 환경이 동작하는지 자동으로 보장한다. PdM 형식이 OPS-10에서 바뀌면 `make test`가 fake_feed 불일치를 잡는다.
 - 영향: `07-runtime.md` 5절, `docs/plan/07-runtime.md` OPS-9B
+
+### D-45 계획 Codex 리뷰 반영 (`docs/reviews/plan-codex-1.md`)
+- 결정:
+  - OPS-4를 OPS-4A(DDL, Docker DB fixture, verify `docker`, 선행 OPS-1)와 OPS-4B(DB 스레드)로 나눈다. broker 재시작 테스트는 OPS-7A에서 OPS-7B로 옮긴다(리뷰 6).
+  - smoke 이미지 태그를 `factory-operations:smoke-<commit 12자리>`로 한다. 병렬 worktree가 같은 태그를 덮어써 다른 commit의 이미지로 smoke를 도는 일을 막는다(리뷰 5).
+  - HUM-1 acceptance는 6절 항목마다 manual 하나(M01~M10)다. 실패 항목만 `pending`으로 남겨 FIX 뒤 그 항목만 다시 본다(08 7절을 이에 맞춤, 리뷰 8).
+  - OPS-1은 `config/default.yaml`의 키 집합과 기본값을 spec 설정 표 전체와 대조한다(리뷰 4).
+- 이유: 한 세션 크기, 병렬 검증의 정확성, 사람 확인의 재확인 단위, 설정 누락 방지.
+- 영향: `docs/plan/05-storage.md`, `docs/plan/08-verification.md` 3절, `docs/plan/07-runtime.md` OPS-9A, `docs/plan/01-core.md` OPS-1 A7, `08-verification.md` 3.7·7절

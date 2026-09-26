@@ -8,12 +8,12 @@
 - 테스트 명령 형식: `make venv >/dev/null && .venv/bin/python -m pytest -q <파일 또는 node id>`. node id가 없으면 pytest가 실패(종료 코드 4)하므로 acceptance가 가리키는 테스트 파일·이름은 바꾸지 않는다(D-42). 테스트는 더 추가해도 된다.
 - 테스트 내용의 원본은 spec 08 3절이다. acceptance 문장은 그 요약이다. 기대값을 바꾸거나 skip으로 통과시키지 않는다. Docker가 없으면 Docker 테스트는 실패해야 한다(spec 08 1절).
 - `tests/docker/` 아래 모든 테스트 파일은 `pytestmark = pytest.mark.docker`를 둔다. `make test`는 `-m "not docker"`라 이것이 빠지면 단위 verify가 Docker를 기다린다.
-- 공용 fixture(`tests/conftest.py`)는 OPS-1이 spec 08 2절 목록 전부(`FakeClock`, `FakePublisher`, `FakeDbSink`, `tmp_image_root`, `payload_examples`)를 만든다. 뒤 task는 이 파일을 고치지 않고, 필요한 fixture를 자기 테스트 파일이나 `tests/docker/conftest.py`(OPS-4가 만들고 OPS-7A가 늘린다)에 둔다. scope를 좁혀 병렬을 가능하게 하기 위해서다(D-41).
+- 공용 fixture(`tests/conftest.py`)는 OPS-1이 spec 08 2절 목록 전부(`FakeClock`, `FakePublisher`, `FakeDbSink`, `tmp_image_root`, `payload_examples`)를 만든다. 뒤 task는 이 파일을 고치지 않고, 필요한 fixture를 자기 테스트 파일이나 `tests/docker/conftest.py`(OPS-4A가 만들고 OPS-7A가 늘린다)에 둔다. scope를 좁혀 병렬을 가능하게 하기 위해서다(D-41).
   - `FakeDbSink`는 작업 타입을 모른다: `put_nowait(job)`을 받아 `jobs` 목록에 쌓는다. `FakePublisher`는 `publish(topic, payload, qos, retain) -> bool`을 `calls`에 기록하고 `connected`로 결과를 바꾼다.
   - `tmp_image_root`는 `tests/fixtures/images/P-00000001.jpg`를 복사한다. 그 파일은 OPS-6이 만든다. OPS-6 전 task는 이 fixture를 쓰지 않는다.
 - 설정 키는 OPS-1이 모두 만든다(D-38). 뒤 task가 키를 추가하거나 기본값을 바꾸면 spec 원본 표(01 4절이 가리키는 곳)와 `config/default.yaml`을 같은 PR에서 고친다. 그 경우 `config/**`와 `src/factory_operations/config.py`가 scope에 없으면 멈춘다.
 - 모듈 경계(spec 01 1절): paho는 `mqtt/client.py`만, psycopg는 `store/db.py`만, FastAPI는 `web/api.py`만 import한다. `domain/`, `mqtt/payloads.py`, `web/snapshot.py`, `store/jobs.py`는 순수 로직이다. OPS-7A가 전체를 검사한다.
-- PdM Result·PdM Spectrum의 **형식**(필드 이름, 필수 여부, 스펙트럼 배열 구성)에 기대는 코드는 `mqtt/payloads.py`의 두 파서와 `tests/fixtures/payloads/pdm_*.json`, `scripts/fake_feed.py`의 PdM 흉내에만 둔다. `domain/`과 `web/`은 파싱된 객체(`PdmResult`, `SpectrumPanels`)만 쓴다. Shared 확정본과 다르면 OPS-10이 이 자리만 고친다(D-39).
+- PdM Result·PdM Spectrum의 **형식**(필드 이름, 필수 여부, 스펙트럼 배열 구성)에 기대는 코드는 `mqtt/payloads.py`의 두 파서, `tests/fixtures/payloads/`(PdM fixture와 테스트·smoke용 생성 함수 `pdm.py`), `scripts/fake_feed.py`의 PdM 흉내에만 둔다. Docker 테스트와 smoke는 PdM 메시지를 `pdm.py`로만 만든다. `domain/`과 `web/`은 파싱된 객체(`PdmResult`, `SpectrumPanels`)만 쓴다. Shared 확정본과 다르면 OPS-10이 이 자리만 고친다(D-39).
 - 모든 task의 verify 비용은 `08-verification.md` 1절 표.
 
 ## 2. task
@@ -68,22 +68,32 @@
             printf 'http:\n  bogus_key: 1\n' > "$f"
             FOPS_CONFIG="$f" .venv/bin/python -c "import subprocess, sys; r = subprocess.run([sys.executable, '-m', 'factory_operations', 'serve'], capture_output=True, text=True, timeout=20); out = r.stdout + r.stderr; print(r.returncode, out[-500:]); sys.exit(0 if r.returncode == 2 and 'http.bogus_key' in out else 1)"
       - id: A7
-        text: config/default.yaml이 spec 설정 표의 모든 절을 가지며 표본 키가 spec 기본값과 같다 (01 4절, D-38)
+        text: config/default.yaml의 키 집합이 spec 설정 표(02 1절, 03 5절, 04 3절, 05 6절, 06 6절, 07 1절)의 키 집합과 같고 모든 기본값이 표와 같다 (01 4절, D-38)
         check:
           type: command
           run: |
             python3 - <<'EOF'
-            import sys, yaml
+            import re, sys, yaml
+            sections = {"http", "mqtt", "db", "paths", "logging", "line", "interlock", "join", "correlation", "pdm", "dashboard"}
+            want = {}
+            for f in ("02-mqtt", "03-control", "04-analysis", "05-storage", "06-dashboard", "07-runtime"):
+                for line in open("docs/spec/%s.md" % f):
+                    m = re.match(r"^\| `([a-z_]+)\.([a-z_]+)` \| ([^|]*) \|", line)
+                    if m and m.group(1) in sections:
+                        cell = m.group(3).strip()
+                        v = re.match(r"`([^`]*)`", cell)
+                        want[(m.group(1), m.group(2))] = v.group(1) if v else cell.split(" ")[0]
             c = yaml.safe_load(open("config/default.yaml"))
-            want = {("http", "port"): 8080, ("mqtt", "url"): "mqtt://localhost:1883", ("mqtt", "client_id"): "factory-operations",
-                    ("mqtt", "topic_prefix"): "factory", ("db", "url"): "postgresql://factory:factory@localhost:5432/factory",
-                    ("db", "summary_period_s"): 2.0, ("paths", "image_root"): "./data", ("logging", "level"): "INFO",
-                    ("line", "sensor_id"): "motor01", ("interlock", "pending_timeout_s"): 5.0, ("join", "max_gap_s"): 5.0,
-                    ("correlation", "default_lag_s"): 13, ("correlation", "window_s"): None, ("pdm", "stale_s"): 2.0,
-                    ("pdm", "history_s"): 120, ("dashboard", "vibration_buckets"): 500, ("dashboard", "recent_controls"): 20}
-            bad = [k for k, v in want.items() if (c.get(k[0]) or {}).get(k[1], "MISSING") != v]
-            print("mismatch:", bad)
-            sys.exit(1 if bad else 0)
+            have = {(s, k): v for s, d in c.items() for k, v in (d or {}).items()}
+            def same(raw, v):
+                if raw == "null":
+                    return v is None
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    return float(raw) == float(v)
+                return str(v) == raw
+            bad = sorted(set(want) ^ set(have)) + sorted(k for k in want if k in have and not same(want[k], have[k]))
+            print(len(want), "keys in spec tables; mismatch:", bad)
+            sys.exit(1 if bad or len(want) < 36 else 0)
             EOF
       - id: A8
         text: requirements.txt와 requirements-dev.txt가 spec 07 7절 버전 그대로 == 로 고정되어 있다 (D-06)
@@ -99,7 +109,7 @@
 
 단계 개요:
 1. `.gitignore`(`.venv/`, `__pycache__/`, `.pytest_cache/`, `data/`, `.env`)를 먼저 만든다. venv·캐시가 untracked로 잡히면 `agent.py verify`가 거부한다. → A9
-2. `pyproject.toml`(pytest 설정, spec 08 2절), `requirements*.txt`(07 7절), `Makefile`의 `venv`(`.pth` 포함, 07 2절)·`test`·`run`, `.env.example`(07 1절 변수). `docker-test`는 OPS-4, `smoke`는 OPS-9A, `feed`는 OPS-9B가 넣는다. → A8
+2. `pyproject.toml`(pytest 설정, spec 08 2절), `requirements*.txt`(07 7절), `Makefile`의 `venv`(`.pth` 포함, 07 2절)·`test`·`run`, `.env.example`(07 1절 변수). `docker-test`는 OPS-4A, `smoke`는 OPS-9A, `feed`는 OPS-9B가 넣는다. → A8
 3. `config.py`와 `config/default.yaml`: spec 01 4절 표가 가리키는 **모든** 절(`http`, `mqtt`, `db`, `paths`, `logging`, `line`, `interlock`, `join`, `correlation`, `pdm`, `dashboard`)의 키와 범위. pydantic `extra="forbid"`, overlay 깊은 병합, 환경 변수, 종료 코드 2. `correlation.default_lag_s`가 `lag_min_s`~`lag_max_s` 안인지도 검사. → A2, A6, A7
 4. `clock.py`(`Clock`, `SystemClock`, `FakeClock`는 테스트 쪽, `iso_ms`, `parse_ts`), `log.py`(JSON 한 줄, 같은 사유 10초 억제). → A3, A4
 5. `web/api.py`(`create_app`, `/healthz`만. `mqtt_connected`·`db_ok`는 StateStore가 생기기 전이라 false), `app.py`(lifespan 틀), `__main__.py serve`(uvicorn, `log_config=None`). → A5

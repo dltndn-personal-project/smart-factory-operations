@@ -1,0 +1,21 @@
+# 계획 리뷰 기록 1 (Codex)
+
+- 날짜: 2026-09-27
+- 리뷰어: Codex CLI `codex-cli 0.155.0-alpha.16.4`, 모델 `gpt-6-sol`, `codex exec -m gpt-6-sol -c model_reasoning_effort="high" -s read-only --skip-git-repo-check -C <저장소> -o <scratch>/factory-operations/plan/plan-review.md "<요청>"`. 요청문에 파일 수정 금지를 적었고, 실행 뒤 `git status`가 깨끗한 것을 확인했다.
+- 대상: `docs/plan/**`와 계획 파일에서 모아 등록한 `agent/PLAN.yaml` (branch `docs/plan`, commit `1eeb143`). 기준: `docs/spec/**`, `agent/config.yaml`, `agent/core/process/20-plan.md`·`00-session.md`, `agent/core/tools/agent.py`·`validate.py`의 실제 동작, `docs/COMPONENT.md`
+- 요청 요지: spec 요구 중 어느 task에도 없는 것, C-01~C-10과 acceptance 대응 누락, 의존 순서 오류, 실행 불가능하거나 약한 acceptance 명령(항상 통과, 이 맥에서 못 돌림, 인용 문제, flaky), scope 누락·과다, 너무 큰 task, 병렬 규칙의 scope·포트 충돌, 계획 파일과 PLAN.yaml 불일치, toy 범위에 비해 과한 계획, OPS-10이 다른 task를 막지 않는지와 PdM 형식 의존이 한 곳에 모였는지. D-01~D-03은 논쟁 대상에서 뺐다. 지적마다 심각도와 근거 위치를 요청했다.
+- Codex 확인 사항: M1~M6과 task 블록이 PLAN.yaml 사본과 모두 같다. C-01~C-10에 각각 task가 있다. 배정되지 않은 파일·모듈·Makefile 대상이 없다. 병렬 표 조합의 scope·고정 포트 충돌이 없다. OPS-10의 `depends_on: [OPS-2]`는 다른 task를 막지 않는다. spec에 없는 기능을 더한 계획은 없다.
+- 판정 방법: 지적마다 해당 계획·spec 절과 도구 코드를 읽고 확인했다(조율 C-03 기준). 모든 acceptance 명령을 `/bin/sh -n`으로 검사했고(87개), 다음은 시험 입력으로 실제 실행했다: OPS-1 A7 설정 대조(맞는 파일 통과, 값 하나 바꾸면 실패), OPS-4A A3 DDL 대조(spec DDL에서 주석·들여쓰기만 바꾼 파일 통과, 문장 추가 시 실패), OPS-7A A7 import 경계, OPS-9B A3 compose 해석(`:ro`를 빼면 실패), OPS-10 A1의 GitHub compare 상태 의미(`identical`/`ahead`), OPS-10 A3(현재 Shared `d0c997c`에서는 실패, 세 행을 확정으로 바꾼 사본에서는 통과).
+- 판정 전에 스스로 찾아 반영한 것: spec 08 2절의 Docker 임의 포트는 `docker restart` 뒤 새로 배정된다(이 맥에서 55140 → 55142 → 55144 확인). 재연결 테스트가 옛 포트를 보게 되므로 테스트가 빈 포트를 골라 고정하도록 spec 08 2절을 고쳤다(D-43).
+- 결과: 지적 8개. 반영 5, 부분 반영 1, 미반영 2.
+
+| 번호 | 요지 | 판정 | 이유 / 반영 위치 |
+|---|---|---|---|
+| 1 | BOOT-1이 문서에는 완료인데 결과 파일은 `verifying`(A3 pending)이라 `agent.py next`가 OPS-1을 고르지 못함 (high) | 미반영(이미 계획된 절차) | 리뷰 시점은 등록 전이었다. `docs/plan/README.md` 6절 등록 3번대로 이 PR에서 `agent/tasks/BOOT-1.yaml`을 `done`으로 정리했다(spec D-02, 조율 C-09, simulator 선례). 등록 뒤 `agent.py next`가 OPS-1을 가리키는 것을 확인했다 |
+| 2 | OPS-10이 OPS-9B보다 먼저 끝나면 OPS-9B가 옛 PdM 가정 형식으로 fake_feed를 만든다 (high) | 반영 | 맞다. OPS-9B 단계 개요를 "그 시점 spec 02 3.6·3.7절과 PdM fixture를 따른다(OPS-10 뒤면 확정본)"로 바꾸고, `test_fake_feed.py::test_pdm_keys_match_fixture`(fake_feed PdM 키 집합 = 그 시점 PdM fixture)를 OPS-9B A2에 넣었다. `test_messages_parse`도 그 시점 파서로 확인한다. `docs/plan/07-runtime.md` OPS-9B, `02-mqtt.md` 4절 |
+| 3 | 연동 테스트·지연 테스트·smoke도 PdM 메시지를 만드는데 공통 생성 규칙이 없고 OPS-10 scope 밖이라, 형식이 바뀌면 OPS-10이 고칠 수 없다 (medium) | 반영 | 맞다. OPS-2가 PdM fixture를 템플릿으로 쓰는 생성 함수 `tests/fixtures/payloads/pdm.py`를 만들고(A10 `test_pdm_helpers_match_fixtures`), OPS-7A·7B의 Docker 테스트와 OPS-9A smoke는 PdM 메시지를 이것으로만 만든다. OPS-10 scope의 `tests/fixtures/payloads/**`에 들어 있어 템플릿만 고치면 되고, `make docker-test`·`make smoke` verify가 확인한다. `docs/plan/01-core.md` 1절, `02-mqtt.md` 2·4·5절, D-39 |
+| 4 | OPS-1 A7이 설정 키 일부만 확인해 기본값이 빠져도 통과 (medium) | 반영 | 맞다. spec 설정 표 여섯 곳(02 1절, 03 5절, 04 3절, 05 6절, 06 6절, 07 1절)을 파싱해 `config/default.yaml`의 키 집합(36개)과 모든 기본값을 대조하도록 바꿨다. 범위 검사는 A2의 대표 두 키와 `extra="forbid"`로 둔다(범위는 pydantic 모델 하나에 있다). `docs/plan/01-core.md` OPS-1 A7, D-45 |
+| 5 | 병렬 worktree가 같은 `factory-operations:smoke` 태그를 빌드해 다른 commit의 이미지로 smoke가 돌 수 있음 (medium) | 반영 | 맞다. 태그를 `factory-operations:smoke-<commit 12자리>`로 바꿨다(verify는 commit된 상태에서만 돌고 병렬 브랜치는 commit이 다르다). spec 08 3.7절 1번, `docs/plan/07-runtime.md` OPS-9A A4, D-45 |
+| 6 | OPS-4와 OPS-7A가 한 세션에 크다 (medium) | 부분 반영 | OPS-4는 나눴다: OPS-4A(DDL·Docker DB fixture·verify `docker`, 선행 OPS-1이라 M1과 병렬 가능)와 OPS-4B(DB 스레드). OPS-7A는 broker 재시작 테스트만 OPS-7B로 옮겼다. 앱 조립과 흐름 연동 테스트는 나누지 않았다: 조립은 흐름 테스트가 유일한 검증이라 떼면 검증 없는 task가 생긴다. `docs/plan/05-storage.md`, `02-mqtt.md` 3절, `08-verification.md` 3절, `00-overview.md` 2절, D-45 |
+| 7 | 화면 acceptance가 ID·문구·파일 제공만 봐서 polling·버튼·차트가 동작하지 않아도 통과 (low) | 미반영 | 브라우저 자동화(headless 브라우저)와 Node는 쓰지 않기로 spec이 정했다(D-34, 08 1절 도구 표). 동작은 OPS-9B A4가 개발용 compose에서 스냅숏·이미지·`POST /api/conveyor` STOP 적용까지 자동으로 보고, 화면 그리기·polling·버튼은 HUM-1(M-01·M-02·M-06)이 본다. toy 범위에서 JS 테스트 기반을 새로 두는 비용이 크다 |
+| 8 | HUM-1 acceptance가 계획은 10개, spec 08 7절은 manual 하나 (low) | 반영 | 항목마다 하나(M01~M10)로 정했다. 실패 항목만 `pending`으로 남겨 FIX 뒤 그 항목만 다시 보기 위해서다(simulator 선례). spec 08 7절을 이에 맞췄다. D-45 |

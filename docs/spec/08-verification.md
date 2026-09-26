@@ -80,7 +80,7 @@
 
 ### 3.7 smoke (`scripts/smoke.py`, C-09)
 
-1. `docker build -t factory-operations:smoke --build-arg GIT_COMMIT=$(git rev-parse HEAD) .` 빌드 시간을 출력만 한다.
+1. `docker build -t factory-operations:smoke-$(git rev-parse --short=12 HEAD) --build-arg GIT_COMMIT=$(git rev-parse HEAD) .` 빌드 시간을 출력만 한다. 태그에 commit을 넣어 병렬 worktree의 smoke가 서로 다른 commit의 이미지를 쓰지 않게 한다(`DECISIONS.md` D-45).
 2. 이름 접미사 `<hex8>`로 network `fops-smoke-<hex8>`, volume `fops-smoke-img-<hex8>`을 만들고 `image-seed`와 같은 방식(07 4절)으로 예시 이미지를 넣는다.
 3. Mosquitto(`--network-alias mosquitto`, `-p 127.0.0.1::1883`), DB(`--network-alias db`, schema initdb 마운트)를 띄우고 `docker exec <db> pg_isready -h 127.0.0.1 -U factory -d factory`가 성공할 때까지 최대 60초.
 4. `docker run -d` Operations(`MQTT_URL=mqtt://mosquitto:1883`, `DATABASE_URL=postgresql://factory:factory@db:5432/factory`, `-v <volume>:/data:ro`, `-p 127.0.0.1::8080`). 이 명령이 끝난 시각부터 `/readyz`를 0.5초 간격으로 부르고 200까지 30초 이하인지 확인한다. `/healthz`의 `commit`이 빌드 인자와 같다.
@@ -133,11 +133,11 @@
 |---|---|---|
 | 기존 | | `{name: agent-files, run: "python3 agent/core/tools/validate.py"}` |
 | 1 | OPS-1 | `{name: unit, run: "make test"}` |
-| 2 | OPS-4 | `{name: docker, run: "make docker-test"}` |
+| 2 | OPS-4A | `{name: docker, run: "make docker-test"}` |
 | 3 | OPS-9A | `{name: smoke, run: "make smoke"}` |
 
 - 전제: Docker Desktop이 실행 중이다(`HUMAN.md` H-1). 처음에는 이미지 받기와 빌드 때문에 수 분 걸린다(`check_timeout` 1800초 안).
-- `docker` 대상은 OPS-4 이후 task마다 테스트가 늘어난다. 한 번 실행 약 3분(Dashboard 지연 60초 포함)을 넘지 않게 한다.
+- `docker` 대상은 OPS-4A 이후 task마다 테스트가 늘어난다. 한 번 실행 약 3분(Dashboard 지연 60초 포함)을 넘지 않게 한다.
 
 ## 6. 수동 확인 목록 (사람 task HUM-1)
 
@@ -160,7 +160,7 @@
 
 ## 7. PLAN 반영 규칙
 
-- 사람 task는 M6에 `owner: human`으로 두고 acceptance는 `{type: manual, how: "docs/spec/08-verification.md 6절 M-01~M-10"}` 하나다. 이 task만 manual을 쓴다.
+- 사람 task는 M6에 `owner: human`으로 두고 acceptance는 6절 항목마다 하나씩(M01~M10) `{type: manual, how: "docs/spec/08-verification.md 6절 M-xx. 결과는 docs/reviews/HUM-1.md"}`다. 실패한 항목만 `pending`으로 남겨 FIX 뒤 그 항목만 다시 보기 위해서다. 이 task만 manual을 쓴다(`DECISIONS.md` D-45).
 - 사람 task에서 실패한 항목은 계획 작업이 수정 task로 추가하고, 수정 뒤 해당 항목만 다시 확인한다.
 - acceptance에는 테스트 파일·테스트 이름을 command로 묶는다(예: `.venv/bin/python -m pytest -q tests/unit/test_interlock.py`).
 - PR merge는 조율 agent가 CI 통과와 `finish` 통과 뒤에 한다(`DECISIONS.md` D-01).

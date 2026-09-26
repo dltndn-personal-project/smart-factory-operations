@@ -1,7 +1,7 @@
 # 05 저장: DB 스키마, 쓰기, 요약 조회
 
 > 목적: `db/schema.sql`의 내용과 적용 방식, DB 스레드의 쓰기·배치·재연결, Dashboard 요약과 상관분석이 쓰는 조회를 정한다. integration이 쓰는 적용 방식·검증 조회의 약속은 `AGREEMENTS.md` A-08이 원본이다.
-> 읽어야 할 때: `db/schema.sql`, `store/`(OPS-4, OPS-5), 테이블·열을 바꿀 때.
+> 읽어야 할 때: `db/schema.sql`, `store/`(OPS-4A·4B, OPS-5), 테이블·열을 바꿀 때.
 
 ## 1. 구성
 

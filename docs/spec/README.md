@@ -41,7 +41,7 @@
 | `06-dashboard.md` | endpoint, 스냅숏 형식, stale 규칙, 화면 칸과 브라우저 동작 |
 | `07-runtime.md` | 실행 키·환경 변수, 로컬 실행, Dockerfile, 개발용 compose, `fake_feed.py`, 의존 버전 |
 | `08-verification.md` | 테스트 전략·fixture, 영역별 테스트, smoke, 성능 측정, verify, 사람 확인 M-01~M-10 |
-| `DECISIONS.md` | 결정 기록 D-01~D-44 (D-37~D-44는 계획 단계) |
+| `DECISIONS.md` | 결정 기록 D-01~D-45 (D-37~D-45는 계획 단계) |
 | `AGREEMENTS.md` | 교차 Component 약속 A-01~A-12, ARCHITECTURE 미결 사항의 해결 위치 |
 | `HUMAN.md` | 사람이 할 일 H-1~H-2 |
 | (`docs/WIREFRAME.html`) | Dashboard 배치 와이어프레임 |

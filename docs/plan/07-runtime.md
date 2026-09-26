@@ -31,7 +31,7 @@ spec 00 6절의 OPS-9는 Dockerfile·smoke·개발용 compose·`fake_feed.py`(Si
         check: {type: command, run: "for p in .git .venv data tests docs agent scripts '**/__pycache__'; do grep -qxF -- \"$p\" .dockerignore || { echo \"missing $p\"; exit 1; }; done"}
       - id: A4
         text: smoke가 만든 이미지에 tests·docs가 없고 정적 파일과 기본 설정이 있다
-        check: {type: command, run: "docker run --rm factory-operations:smoke python -c \"import os, sys; bad = [p for p in ('/app/tests', '/app/docs', '/app/agent') if os.path.exists(p)]; miss = [p for p in ('/app/src/factory_operations/web/static/index.html', '/app/config/default.yaml') if not os.path.exists(p)]; print(bad, miss); sys.exit(1 if bad or miss else 0)\""}
+        check: {type: command, run: "docker run --rm factory-operations:smoke-$(git rev-parse --short=12 HEAD) python -c \"import os, sys; bad = [p for p in ('/app/tests', '/app/docs', '/app/agent') if os.path.exists(p)]; miss = [p for p in ('/app/src/factory_operations/web/static/index.html', '/app/config/default.yaml') if not os.path.exists(p)]; print(bad, miss); sys.exit(1 if bad or miss else 0)\""}
       - id: A5
         text: smoke가 끝난 뒤 fops-smoke- 이름의 컨테이너·network·volume이 남지 않는다 (08 3.7절 7번)
         check: {type: command, run: "test -z \"$(docker ps -aq --filter name=fops-smoke-)\" && test -z \"$(docker network ls -q --filter name=fops-smoke-)\" && test -z \"$(docker volume ls -q --filter name=fops-smoke-)\""}
@@ -42,8 +42,8 @@ spec 00 6절의 OPS-9는 Dockerfile·smoke·개발용 compose·`fake_feed.py`(Si
 ```
 
 단계 개요:
-1. `Dockerfile`(07 3절 그대로), `.dockerignore`. `docker build`가 되는지 먼저 본다(첫 빌드는 베이스 이미지·pip로 수 분, 인터넷 필요). → A2, A3
-2. `scripts/smoke.py`: 08 3.7절 1~7번. 컨테이너·network·volume은 `<hex8>` 접미사로 만들고 id·이름으로만 지운다. Mosquitto·DB·Operations 모두 `-p 127.0.0.1::<port>`(재시작 없음, 임의 포트). harness는 `.venv`의 paho. 실패하면 Operations 로그 마지막 100줄과 종료 코드 1. → A1, A5
+1. `Dockerfile`(07 3절 그대로), `.dockerignore`. smoke 이미지 태그는 `factory-operations:smoke-<commit 12자리>`다(spec 08 3.7절 1번). `docker build`가 되는지 먼저 본다(첫 빌드는 베이스 이미지·pip로 수 분, 인터넷 필요). → A2, A3
+2. `scripts/smoke.py`: 08 3.7절 1~7번. 컨테이너·network·volume은 `<hex8>` 접미사로 만들고 id·이름으로만 지운다. Mosquitto·DB·Operations 모두 `-p 127.0.0.1::<port>`(재시작 없음, 임의 포트). harness는 `.venv`의 paho, PdM 메시지는 `tests/fixtures/payloads/pdm.py`(파일 경로로 불러옴, D-39). 실패하면 Operations 로그 마지막 100줄과 종료 코드 1. → A1, A5
 3. `Makefile`에 `smoke`. `make smoke`를 두 번 연속 실행해 정리가 되는지 본다. → A1, A4
 4. `agent/config.yaml`에 `smoke` 추가 → `validate.py --remote`. → A6
 
@@ -64,8 +64,8 @@ spec 00 6절의 OPS-9는 Dockerfile·smoke·개발용 compose·`fake_feed.py`(Si
         text: 단위 테스트 전체가 통과한다
         check: {type: command, run: "make test"}
       - id: A2
-        text: fake_feed가 만드는 여섯 Topic 메시지가 payloads 파서로 모두 받아지고, Fault Level 시나리오(0~40초 0, 40~70초 3, 70~160초 6, 그 뒤 9)와 image_path = products/<product_id>.jpg, STOP/START 적용과 last_command(retained 명령은 REJECTED)가 spec 07 5절대로다 (D-44)
-        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_fake_feed.py::test_messages_parse tests/unit/test_fake_feed.py::test_scenario_levels tests/unit/test_fake_feed.py::test_image_path_matches_product_id tests/unit/test_fake_feed.py::test_control_updates_last_command"}
+        text: fake_feed가 만드는 여섯 Topic 메시지가 payloads 파서로 모두 받아지고 PdM Result·Spectrum의 키 집합이 그 시점 PdM fixture(tests/fixtures/payloads/pdm_*.json 또는 OPS-10 뒤 shared_pdm_*.json)와 같으며, Fault Level 시나리오(0~40초 0, 40~70초 3, 70~160초 6, 그 뒤 9)와 image_path = products/<product_id>.jpg, STOP/START 적용과 last_command(retained 명령은 REJECTED)가 spec 07 5절대로다 (D-44)
+        check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_fake_feed.py::test_messages_parse tests/unit/test_fake_feed.py::test_pdm_keys_match_fixture tests/unit/test_fake_feed.py::test_scenario_levels tests/unit/test_fake_feed.py::test_image_path_matches_product_id tests/unit/test_fake_feed.py::test_control_updates_last_command"}
       - id: A3
         text: 환경 변수 없이 해석한 compose가 mosquitto·db·image-seed·factory-operations 서비스, 127.0.0.1의 8080·1883·5432 포트, Operations의 /data 읽기 전용 마운트를 가진다 (07 4절)
         check:
@@ -137,7 +137,7 @@ spec 00 6절의 OPS-9는 Dockerfile·smoke·개발용 compose·`fake_feed.py`(Si
 
 단계 개요:
 1. `compose.yaml`(07 4절 네 서비스, 포트 환경 변수, `image-seed` 300장, 익명 DB 볼륨, `image-storage` 볼륨). → A3
-2. `scripts/fake_feed.py`: 07 5절(Simulator·PdM·Vision 흉내, 시나리오, 명령 적용, Ctrl-C 때 offline retain). 메시지를 만드는 함수와 발행 루프를 나눠 테스트가 함수를 import할 수 있게 한다. PdM 흉내는 A-05·A-06 가정 형식(OPS-10 전)이다. → A2
+2. `scripts/fake_feed.py`: 07 5절(Simulator·PdM·Vision 흉내, 시나리오, 명령 적용, Ctrl-C 때 offline retain). 메시지를 만드는 함수와 발행 루프를 나눠 테스트가 함수를 import할 수 있게 한다. PdM 흉내의 형식은 그 시점 spec 02 3.6·3.7절과 PdM fixture를 따른다. OPS-10이 아직이면 A-05·A-06 가정, 먼저 끝났으면 채택된 `contract_ref` 확정본이다(D-39). → A2
 3. `tests/unit/test_fake_feed.py`(`importlib`로 스크립트를 불러 메시지를 OPS-2 파서에 넣는다). → A1, A2
 4. `Makefile`의 `feed`, `.env.example`에 compose 포트 변수(`FOPS_HTTP_PORT` 등)를 주석으로. → A6
 5. 개발 환경 확인(A4 명령). 실패하면 compose·fake_feed를 고친다. 앱 코드 결함이면 멈추고 FIX task를 요청한다(scope).

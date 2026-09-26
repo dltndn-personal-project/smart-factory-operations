@@ -9,7 +9,7 @@
 2. 계획 파일은 사람이 읽는 원본이고, `agent/PLAN.yaml`은 도구(`agent.py`)가 실행하는 사본이다. 두 곳의 task 블록(id, milestone, type, title, why, depends_on, scope, acceptance, size, owner, contract)은 같아야 한다.
 3. 다르면 **PLAN.yaml이 이긴다**. 발견한 agent는 작업을 계속하고 PR 본문에 차이를 적는다. 조율 agent가 계획 파일을 PLAN.yaml에 맞게 고친다.
 4. 계획 파일의 단계 개요와 "읽을 spec"은 PLAN.yaml에 없다. `20-plan.md`에서 `SESSION.yaml` steps를 쓸 때 출발점으로 쓴다(8개 이하).
-5. 설계 결정은 `docs/spec/DECISIONS.md` 하나에 둔다. 이 계획의 결정은 D-37~D-44이다.
+5. 설계 결정은 `docs/spec/DECISIONS.md` 하나에 둔다. 이 계획의 결정은 D-37~D-45이다(D-45는 Codex 리뷰 반영).
 
 ## 2. task → 계획 파일 → spec
 
@@ -18,7 +18,7 @@
 | OPS-1 | `01-core.md` | `01-core.md`, `07-runtime.md` 1·2·6·7절, `08-verification.md` 1·2·3.1·5절 |
 | OPS-2 | `02-mqtt.md` | `02-mqtt.md` 2~4절, `AGREEMENTS.md` A-01~A-07 |
 | OPS-3A, OPS-3B | `03-control.md` | `03-control.md`, `01-core.md` 2·3절, `04-analysis.md` 1절(OPS-3A), `05-storage.md` 2절(OPS-3B) |
-| OPS-4 | `05-storage.md` | `05-storage.md`, `AGREEMENTS.md` A-08, `08-verification.md` 2·3.6절 |
+| OPS-4A, OPS-4B | `05-storage.md` | `05-storage.md`, `AGREEMENTS.md` A-08, `08-verification.md` 2·3.6절 |
 | OPS-5 | `04-analysis.md` | `04-analysis.md` 2·3절, `05-storage.md` 3·5절 |
 | OPS-6 | `06-dashboard.md` | `06-dashboard.md` 1~4·6절, `08-verification.md` 3.5절 |
 | OPS-7A | `02-mqtt.md` | `02-mqtt.md` 1·4·5절, `01-core.md` 2·7절, `03-control.md` 3.3절, `08-verification.md` 2·3.6절 |
@@ -53,13 +53,14 @@ scope가 겹치지 않는 조합(이 밖의 조합은 선행 관계나 scope 때
 
 | 조합 | 시작 조건 | 단계 | 비고 |
 |---|---|---|---|
-| OPS-5 ∥ OPS-6 | OPS-4 done | M2 ∥ M3 | 가장 효과가 크다. OPS-7A는 둘 다 끝나야 시작 |
+| OPS-4A ∥ OPS-2·OPS-3A·OPS-3B 중 하나 | OPS-1 done | M2 ∥ M1 | Docker 기반을 코어와 함께 준비한다. OPS-4A가 먼저 merge되면 M1 task의 verify에 `docker`가 더해진다 |
+| OPS-5 ∥ OPS-6 | OPS-4B done | M2 ∥ M3 | 가장 효과가 크다. OPS-7A는 둘 다 끝나야 시작 |
 | OPS-8 ∥ OPS-7A 또는 OPS-7B | OPS-6 done (OPS-7B는 OPS-7A done) | M4 ∥ M3 | 화면 줄기와 연동 줄기 |
 | OPS-8 ∥ OPS-9A | OPS-6·OPS-7A done | M4 안 | |
 | OPS-7B ∥ OPS-9A | OPS-7A done | M3 ∥ M4 | 둘 다 Docker를 오래 쓴다(verify 3~5분) |
-| OPS-10 ∥ OPS-3A·3B·4·5·6·7B·8 중 하나 | 조율 agent 알림, OPS-2 done | M5 ∥ 아무 단계 | OPS-7A·9A·9B와는 안 된다(`02-mqtt.md`·`07-runtime.md`·`scripts/fake_feed.py`가 겹침) |
+| OPS-10 ∥ OPS-3A·3B·4A·4B·5·6·7B·8 중 하나 | 조율 agent 알림, OPS-2 done | M5 ∥ 아무 단계 | OPS-7A·9A·9B와는 안 된다(`02-mqtt.md`·`07-runtime.md`·`scripts/fake_feed.py`가 겹침) |
 
-단계 안에서는 M4의 OPS-8 ∥ OPS-9A만 가능하다. M1(OPS-1 → 2 → 3A → 3B)과 M2(OPS-4 → 5)는 앞 task의 모듈을 import하므로 순서대로다.
+단계 안에서는 M4의 OPS-8 ∥ OPS-9A만 가능하다. M1(OPS-1 → 2 → 3A → 3B)과 M2(OPS-4A → 4B → 5)는 앞 task의 모듈이나 fixture를 쓰므로 순서대로다.
 
 병렬 task의 merge 절차(먼저 끝난 쪽은 평소대로 merge):
 1. 나중 브랜치에 `git merge origin/main`(rebase 금지: `agent/tasks/<ID>.yaml`의 evidence commit이 이력에 남아야 한다).
@@ -90,7 +91,7 @@ gh pr create --base main --head agent/<ID> --title "<ID>: <title>" --body-file <
 
 - 회고(`agent.py retro`)는 책임자가 요청할 때만 쓴다. 요청이 없으면 verify 다음에 바로 finish.
 - commit 메시지: `<ID>: <한 일>`(00-session.md). 서명 줄은 실행 환경이 정한 규칙을 따른다.
-- `agent/config.yaml`을 바꾸는 task(OPS-1, OPS-4, OPS-9A)는 추가할 명령을 먼저 직접 실행해 통과를 확인한다.
+- `agent/config.yaml`을 바꾸는 task(OPS-1, OPS-4A, OPS-9A)는 추가할 명령을 먼저 직접 실행해 통과를 확인한다.
 - spec을 고쳐야 하면 자기 scope의 spec 파일과 `DECISIONS.md`만 고친다(D-40). `00-overview.md`, `08-verification.md`, `AGREEMENTS.md`, `README.md`는 OPS-10 말고는 고치지 않는다(멈춘다).
 - 임시 파일은 `mktemp`나 저장소 밖 scratch에 둔다. 넓은 패턴의 `pkill`/`docker rm`을 쓰지 않고 자기 프로세스·컨테이너는 PID·id로만 지운다(조율 C-11).
 - Agent는 PR을 merge하지 않는다. merge는 조율 agent가 한다(spec D-01).
