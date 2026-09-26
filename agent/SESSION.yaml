@@ -1,8 +1,28 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-9B
+phase: plan
+base_commit: 9c15038f6c2e5a9f0891506a9d7a2c8cca1fa8e0
+started_at: '2026-09-26T21:57:15Z'
+steps:
+- do: 'compose.yaml — 07 4절 네 서비스(mosquitto, db, image-seed, factory-operations), 포트 환경 변수, image-storage
+    볼륨, name: factory-operations'
+  check: A3
+  done: false
+- do: scripts/fake_feed.py — 07 5절 Simulator·PdM·Vision 흉내. 메시지를 만드는 Feed(시간 주입)와 발행 루프 분리, 명령 적용, SIGINT/SIGTERM
+    때 offline retain
+  check: python scripts/fake_feed.py --help
+  done: false
+- do: tests/unit/test_fake_feed.py — importlib로 불러 파서·fixture 키·시나리오·이미지 경로·명령 적용 확인, make test
+  check: A1, A2
+  done: false
+- do: Makefile feed, .env.example에 FOPS_HTTP_PORT·FOPS_MQTT_PORT·FOPS_DB_PORT 주석
+  check: A6
+  done: false
+- do: 개발 환경 확인(A4 명령 실행). 실패하면 compose·fake_feed 수정
+  check: A4
+  done: false
+- do: docs/COMPONENT.md 실행·검증 환경 절을 실제 명령으로, spec 07 구현 메모
+  check: A5
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: step 1 compose.yaml 작성
