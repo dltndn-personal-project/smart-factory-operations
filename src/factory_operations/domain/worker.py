@@ -1,7 +1,7 @@
 """도메인 워커의 처리 함수 `Processor` (docs/spec/03-control.md 2~4절, 01-core.md 2절).
 
 스레드·큐 없이 직접 부를 수 있다(시나리오 테스트가 이것을 부른다). 워커 스레드 루프(큐에서 꺼내기,
-0.1초 `tick`, 종료)는 OPS-7A가 이 파일에 더한다.
+0.1초 `tick`, 종료)는 `Worker`다(01 2절).
 
 - 입력: `Inbound`(paho가 넣은 원시 메시지) 또는 `OperatorCommand`(HTTP).
 - 출력: `publisher.publish(topic, payload: bytes, qos, retain) -> bool`, `db_sink.put_nowait(job)`,
@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import queue
+import threading
 from collections import OrderedDict
 from concurrent.futures import Future, InvalidStateError
 from dataclasses import dataclass
@@ -405,3 +406,61 @@ def _complete(f: Future, value: Any = None, exc: BaseException | None = None) ->
             f.set_result(value)
     except InvalidStateError:
         pass
+
+
+# ---------------------------------------------------------------------------
+# 워커 스레드 (01 2절)
+
+TICK_S = 0.1
+
+
+class Worker:
+    """도메인 워커 스레드 하나. inbound 큐에서 `get(timeout≤0.1)`로 꺼내 `Processor.handle`에 넘기고,
+    꺼낸 것이 없어도 0.1초마다 `Processor.tick`을 부른다. 처리 중 예외는 로그만 남기고 계속한다."""
+
+    def __init__(self, processor: Processor, inbound: "queue.Queue[Any]", *, tick_s: float = TICK_S, log: EventLogger | None = None):
+        self.processor = processor
+        self.inbound = inbound
+        self.tick_s = tick_s
+        self.clock = processor.clock
+        self.log = log or processor.log
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def start(self) -> None:
+        self._thread = threading.Thread(target=self.run, name="worker", daemon=True)
+        self._thread.start()
+
+    def stop(self, timeout: float = 2.0) -> bool:
+        """종료 표시 후 join. 제한 시간 안에 끝나면 True(01 7절)."""
+        self._stop.set()
+        if self._thread is None:
+            return True
+        self._thread.join(timeout)
+        alive = self._thread.is_alive()
+        if alive:
+            self.log.warning("worker_stop_timeout", timeout_s=timeout)
+        return not alive
+
+    def run(self) -> None:
+        next_tick = self.clock.mono() + self.tick_s
+        while not self._stop.is_set():
+            wait = max(0.0, min(self.tick_s, next_tick - self.clock.mono()))
+            try:
+                item = self.inbound.get(timeout=wait)
+            except queue.Empty:
+                item = None
+            if item is not None:
+                self._safe(self.processor.handle, item)
+            now = self.clock.mono()
+            if now >= next_tick:
+                self._safe(self.processor.tick)
+                next_tick = now + self.tick_s
+
+    def _safe(self, fn: Any, *args: Any) -> None:
+        try:
+            fn(*args)
+        except Exception as e:
+            self.log.error("worker_error", reason=getattr(fn, "__name__", "call"), error=repr(e))
+            if args and isinstance(args[0], OperatorCommand):
+                _complete(args[0].future, exc=e)

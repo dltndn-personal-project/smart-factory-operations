@@ -9,7 +9,7 @@ steps:
   note: mqtt_connected는 on_connect가 아니라 구독 SUBACK(on_subscribe)에서 True로 둔다(D-50)
 - do: 'domain/worker.py에 워커 스레드 루프(Worker: get(timeout=0.1) → Processor.handle, 0.1초마다 tick, 종료 표시·join)'
   check: make test
-  done: false
+  done: true
 - do: app.py lifespan 조립(StateStore → DbWriter(요약·상관분석 콜백) → 워커 → MQTT → HTTP create_app), 종료 역순·제한 시간, __main__ serve
   check: A6, A7
   done: false
@@ -27,4 +27,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 2 워커 스레드 루프
+next_action: step 3 app.py 조립
