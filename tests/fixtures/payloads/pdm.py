@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import Any
 
 HERE = Path(__file__).resolve().parent
-RESULT_TEMPLATE = HERE / "pdm_result_draft.json"
-SPECTRUM_TEMPLATE = HERE / "pdm_spectrum_envelope.json"
+RESULT_TEMPLATE = HERE / "shared_pdm_result.json"
+SPECTRUM_TEMPLATE = HERE / "shared_pdm_spectrum.json"
 WINDOW_S = 1.0
 
 DROP = object()  # 바꿀 값에 주면 그 키를 뺀다
@@ -62,7 +62,7 @@ def pdm_result(
     anomaly_score: float,
     **overrides: Any,
 ) -> dict[str, Any]:
-    """PdM Result 한 건(dict). 템플릿: `pdm_result_draft.json`."""
+    """PdM Result 한 건(dict). 템플릿: `shared_pdm_result.json`(Shared cb6dc3c 확정 예시)."""
     values = {
         "sensor_id": sensor_id,
         "timestamp": timestamp,
@@ -74,7 +74,7 @@ def pdm_result(
 
 
 def pdm_spectrum(sensor_id: str, timestamp: str | datetime, **overrides: Any) -> dict[str, Any]:
-    """PdM Spectrum 한 건(dict). 템플릿: `pdm_spectrum_envelope.json`(배열 값은 템플릿 그대로)."""
+    """PdM Spectrum 한 건(dict). 템플릿: `shared_pdm_spectrum.json`(배열 값은 템플릿 그대로)."""
     return _fill(SPECTRUM_TEMPLATE, {"sensor_id": sensor_id, "timestamp": timestamp}, overrides)
 
 

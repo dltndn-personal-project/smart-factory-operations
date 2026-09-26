@@ -15,7 +15,8 @@ steps:
 - do: 'fixture: shared_pdm_result.json·shared_alarm_event.json(원문), shared_pdm_spectrum.json(스칼라
     원문 + seed 고정 501개×6), 가정 fixture 교체, pdm.py 템플릿, SOURCES.md'
   check: A3
-  done: false
+  done: true
+  note: pdm_result_draft.json은 확정 형식에도 맞아 유지(OPS-2 테스트 대상). 가정 스펙트럼 fixture 3개는 삭제
 - do: payloads.py 두 파서를 5.1절대로 고치고 테스트 추가·수정(bins_without_step·no_series는 이름 유지, 거부
     기대로)
   check: A3, A4
@@ -32,5 +33,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 3: fixture: shared_pdm_result.json·shared_alarm_event.json(원문),
-  shared_pdm_spectrum.json(스칼라 원문 + seed 고정 501개×6), 가정 fixture 교체, pdm.py 템플릿, SOURCES.md'
+next_action: 'step 4: payloads.py 두 파서를 5.1절대로 고치고 테스트 추가·수정(bins_without_step·no_series는
+  이름 유지, 거부 기대로)'
