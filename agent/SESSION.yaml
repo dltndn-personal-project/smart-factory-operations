@@ -16,7 +16,7 @@ steps:
   done: true
 - do: Makefile feed, .env.example에 FOPS_HTTP_PORT·FOPS_MQTT_PORT·FOPS_DB_PORT 주석
   check: A6
-  done: false
+  done: true
 - do: 개발 환경 확인(A4 명령 실행). 실패하면 compose·fake_feed 수정
   check: A4
   done: false
@@ -25,4 +25,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 4 Makefile feed, .env.example
+next_action: step 5 A4 개발 환경 확인

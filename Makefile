@@ -3,7 +3,7 @@
 PYTHON ?= python3
 VENV := .venv
 
-.PHONY: venv test docker-test smoke run
+.PHONY: venv test docker-test smoke run feed
 
 venv: $(VENV)/.installed
 
@@ -24,3 +24,6 @@ smoke: venv
 
 run: venv
 	$(VENV)/bin/python -m factory_operations serve
+
+feed: venv
+	$(VENV)/bin/python scripts/fake_feed.py
