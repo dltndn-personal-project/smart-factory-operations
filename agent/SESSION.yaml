@@ -19,7 +19,7 @@ steps:
   done: true
 - do: make docker-test 확인 후 agent/config.yaml verify에 docker 추가, validate.py --remote
   check: A1, A5
-  done: false
+  done: true
 attempts: {}
 evidence: {}
-next_action: 'step 4: make docker-test 뒤 agent/config.yaml verify에 docker 추가'
+next_action: agent.py verify
