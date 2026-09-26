@@ -9,7 +9,7 @@ steps:
   done: true
 - do: 'mqtt/topics.py: 접두사로 Topic 8개, 수신 Topic → 입력 종류와 + 자리 값, tests/unit/test_topics.py'
   check: A8
-  done: false
+  done: true
 - do: mqtt/payloads.py 공통 규칙(3.1절)과 rel_path
   check: A3, A7
   done: false
@@ -27,4 +27,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 2: mqtt/topics.py: 접두사로 Topic 8개, 수신 Topic → 입력 종류와 + 자리 값, tests/unit/test_topics.py'
+next_action: 'step 3: mqtt/payloads.py 공통 규칙(3.1절)과 rel_path'
