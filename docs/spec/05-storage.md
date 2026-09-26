@@ -41,6 +41,12 @@
 - 진동 배열은 파이썬 float 목록으로 넘기고 `real[]` 열에 넣는다(`numpy.ndarray.tolist()`, 값은 Payload의 소수 4자리 그대로).
 - 적재량: chunk 초당 10행, 행당 약 12 KB(`real` 3 × 1000 × 4 B + 헤더) → 약 120 KB/초, 5분 약 36 MB. 1초 배치 한 번에 약 10행.
 
+구현(`store/db.py`의 `DbWriter`, SQL은 `store/sql.py`):
+- 생성자: `DbWriter(cfg, db_queue, clock=, on_db_ok=, on_summary=, on_correlation=, compute_correlation=)`. `start()`, `stop(timeout=5.0)`(남은 배치를 쓰고 연결을 닫는다). 콜백은 DB 스레드에서 불리고, 콜백 예외는 `db_callback_error` 로그만 남긴다. `on_db_ok`는 값이 바뀔 때만 부른다(처음 값 false는 부르지 않는다).
+- 재연결 시도는 작업이 없어도 루프 반복마다(최대 0.2초 간격) `reconnect_interval_s`가 지났는지 보고 한다. 트래픽이 없을 때도 `db_ok`(`/readyz`)가 돌아오게 하기 위해서다. 끊김은 작업·요약 조회의 `OperationalError`(또는 깨진 연결)로 알아챈다.
+- 요약 dict 값은 psycopg가 준 그대로다(`timestamp`류는 aware datetime, `alarm_id`는 `uuid.UUID`, `bbox`는 int 목록). JSON 변환은 스냅숏(OPS-6)이 한다. 상관분석 입력은 `(timestamp, defect)`·`(timestamp, anomaly_score)` 튜플 목록이고 `cfg`는 생성자에 준 설정이다.
+- 관찰용 누계 `counters`: `jobs_written`, `sensor_rows_written`, `sensor_batches`, `dropped_disconnected`, `db_errors`, `connect_attempts`, `summaries`, `correlations`.
+
 ## 4. DDL (`db/schema.sql`)
 
 한 파일, 순수 SQL, 반복 실행해도 오류가 없다(`IF NOT EXISTS`, `ON CONFLICT DO NOTHING`, `if_not_exists => TRUE`, `CREATE OR REPLACE VIEW`). migration 도구는 쓰지 않는다. 스키마를 바꾸면 `schema_info.version`을 올리고 코드의 기대값도 같은 PR에서 바꾼다(초기화가 매번 빈 DB라 옛 버전 변환은 하지 않는다). 아래가 버전 1의 전체 내용이다(주석은 줄여도 된다).
