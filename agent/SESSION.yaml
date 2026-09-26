@@ -1,8 +1,26 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-4B
+phase: plan
+base_commit: 4bc246d0c8e0f0f12a935dc4a34ef93ba11f0a34
+started_at: '2026-09-26T20:34:05Z'
+steps:
+- do: 'store/sql.py: 작업 9종 SQL(05 2절), 요약 네 조회, 상관분석 두 조회와 window 조건(05 5절)'
+  check: A2, A4 준비(import 확인)
+  done: false
+- do: 'store/db.py: 연결(autocommit, connect_timeout 5, statement_timeout 5000)·스키마
+    확인·재연결 2초, 끊긴 동안 작업 버리고 셈, on_db_ok 콜백'
+  check: A4, A5
+  done: false
+- do: 'store/db.py 루프: get(timeout=0.2), 센서 배치(20행/1초, 한 트랜잭션), 나머지 즉시, 실패 db_error
+    후 버림, 요약 2초·상관분석 10초(db_ok false면 건너뜀), 종료 때 배치 flush 후 close'
+  check: A2
+  done: false
+- do: 'tests/docker/test_db_writer.py: 작업별 행, 중복, 센서 배치, control_result 한 번, DB 재시작(자기
+    컨테이너), 스키마 없음, 요약 콜백, 상관분석 훅'
+  check: A2, A3, A4
+  done: false
+- do: make test, make docker-test, psycopg import 검사
+  check: A1, A5
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(store/sql.py)부터 수행
