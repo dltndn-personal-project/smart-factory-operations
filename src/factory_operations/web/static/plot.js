@@ -106,7 +106,9 @@
       const x = Math.round(X(v)) + 0.5;
       ctx.strokeStyle = hair;
       ctx.beginPath(); ctx.moveTo(x, plot.y1); ctx.lineTo(x, plot.y1 + 3); ctx.stroke();
-      ctx.fillText(fmt(v, xt.step) + (xunit ? " " + xunit : ""), x, plot.y1 + 4);
+      const label = fmt(v, xt.step) + (xunit ? " " + xunit : "");
+      const half = ctx.measureText(label).width / 2;
+      ctx.fillText(label, Math.min(Math.max(x, half), w - half), plot.y1 + 4); // 양 끝 라벨이 잘리지 않게
     }
     // 축
     ctx.strokeStyle = cssVar("--line");

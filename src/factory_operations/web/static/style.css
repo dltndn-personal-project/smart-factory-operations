@@ -73,9 +73,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .cmd-error { color: var(--critical); font-weight: 600; }
 
 .chart { width: 100%; height: 120px; display: block; margin-top: 6px; }
-.chart-sm { height: 64px; }
+.chart-sm { height: 72px; }
 
-.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; margin-top: 10px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 10px; }
 .thumb { border: 1px solid var(--hair); border-radius: 4px; padding: 6px; font-size: 12px; line-height: 1.4; }
 .thumb.defect { border-color: var(--critical); }
 .thumb .img { display: flex; align-items: center; justify-content: center; aspect-ratio: 1; width: 100%; margin-bottom: 4px; background: var(--hair); border-radius: 3px; overflow: hidden; color: var(--muted); }

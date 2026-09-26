@@ -17,10 +17,12 @@ steps:
 - do: static/app.js — 1초 polling(진행 중이면 건너뜀, 3초 AbortController), 칸마다 다시 그리기(스크롤 유지), 4절 stale 문구, START
     확인 창·오류 코드, 썸네일·원본 보기·이미지 없음, ?debug=1 렌더링 시간
   check: A2 test_poll_interval_constant, A4
-  done: false
+  done: true
+  note: '화면 확인: 저장소 밖 미리보기 서버(가짜 StateStore)로 밝은·어두운·모바일, stale·연결 끊김·504 표시를 브라우저에서 봄. x축 끝 라벨 잘림을 plot.js에서
+    고침'
 - do: tests/unit/test_static.py, make test, make run으로 화면 수동 확인(선택)
   check: A1, A2, A3, A4
   done: false
 attempts: {}
 evidence: {}
-next_action: step 4 static/app.js 작성
+next_action: step 5 tests/unit/test_static.py 작성, make test
