@@ -23,7 +23,7 @@
 | `smoke` | `venv` 후 `.venv/bin/python scripts/smoke.py` |
 
 - `pyproject.toml` `[tool.pytest.ini_options]`: `pythonpath = ["src"]`, `testpaths = ["tests"]`, `markers = ["docker: Docker로 Mosquitto·TimescaleDB를 띄우는 연동 테스트"]`.
-- 공용 fixture(`tests/conftest.py`): `FakeClock`, `FakePublisher`(`publish` 호출을 `(topic, payload, qos, retain)` 목록으로, `connected` 조절), `FakeDbSink`(DB 큐 작업 목록), `tmp_image_root`(`products/P-00000001.jpg` 복사본), `payload_examples`(`tests/fixtures/payloads/*.json`: Shared INTERFACES 예시 5개, PdM 아키텍처 6.2절 예시, 스펙트럼 예시 3종). Sensor Vibration 예시는 원문 배열에 설명 문자열(`"… 1000개"`)이 있어 그대로 쓸 수 없으므로, 원문의 스칼라 필드와 seed 고정 난수 축별 1000개(소수 4자리)로 만든 파일을 쓴다. 나머지 예시는 원문 그대로다.
+- 공용 fixture(`tests/conftest.py`): `FakeClock`, `FakePublisher`(`publish` 호출을 `(topic, payload, qos, retain)` 목록으로, `connected` 조절), `FakeDbSink`(DB 큐 작업 목록), `tmp_image_root`(`products/P-00000001.jpg` 복사본), `payload_examples`(`tests/fixtures/payloads/*.json`: Shared INTERFACES 예시 5개(`d0c997c`), PdM 아키텍처 6.2절 예시, Shared `cb6dc3c`의 PdM Result·Alarm Event·PdM Spectrum 예시. 출처는 같은 폴더 `SOURCES.md`). Sensor Vibration·PdM Spectrum 예시는 원문 배열에 설명 문자열(`"… 1000개"`)이 있어 그대로 쓸 수 없으므로, 원문의 스칼라 필드와 seed 고정 난수 축별 1000개(소수 4자리)로 만든 파일을 쓴다. 나머지 예시는 원문 그대로다.
 - Docker fixture(`tests/docker/conftest.py`, 모두 `@pytest.mark.docker` 테스트에서만):
   - 호스트 포트: 테스트가 빈 포트를 골라(`socket.bind(("127.0.0.1", 0))`) `-p 127.0.0.1:<port>:<컨테이너 포트>`로 고정한다. Docker 임의 포트(`-p 127.0.0.1::1883`)는 `docker restart` 뒤 새로 배정되어 재연결 테스트가 옛 포트를 보게 된다(`DECISIONS.md` D-43). 재시작 테스트(`test_db_writer.py` DB 재시작, `test_broker_restart.py`)는 세션 컨테이너를 흔들지 않도록 자기 컨테이너를 쓴다.
   - `mqtt_broker`(session): `docker run -d --rm --name fops-test-mqtt-<hex8> -p 127.0.0.1:<port>:1883 eclipse-mosquitto:2.1.2-alpine mosquitto -c /mosquitto-no-auth.conf`, TCP 연결이 될 때까지 최대 10초.
@@ -44,10 +44,11 @@
 
 ### 3.2 Payload (`test_payloads.py`)
 
-- Shared 예시 5개와 PdM 예시가 받아지고 값이 같다. 각 표(02 3.2~3.7절)의 필드를 하나씩 빼거나 틀리게 하면 정해진 사유(`missing_field:<이름>`, `invalid_field:<이름>`, `topic_mismatch`, `unsupported_schema_version`, `invalid_json`)로 거부된다. 선택 필드는 틀려도 받고 null이 된다.
+- Shared 예시(5개와 `cb6dc3c` PdM Result)와 PdM 초안 예시가 받아지고 값이 같다. Shared PdM Result의 거부 예(밀리초 없는 `timestamp`, `window_start` 없음, 소문자 `state`)는 거부된다. 각 표(02 3.2~3.7절)의 필드를 하나씩 빼거나 틀리게 하면 정해진 사유(`missing_field:<이름>`, `invalid_field:<이름>`, `topic_mismatch`, `unsupported_schema_version`, `invalid_json`)로 거부된다. 선택 필드는 틀려도 받고 null이 된다.
 - Line Status `online:false`(다른 필드 없음) 받음. `last_command.result`가 틀리면 `last_command`만 null.
 - Vision Result에서 `confidence`·`bbox`·`gradcam_path` 키가 없어도 받음.
-- 스펙트럼: (a) `spectrum_x/y/z` + `freq_step_hz` → 패널 1개·계열 3개, x_step 1.0 Hz (b) + `envelope_y` → 패널 2개 (c) 간격 필드 없음 → `x_unit: "bin"` (d) 배열 없음 → `no_series` (e) 300 KB → `too_large`.
+- PdM Result(`cb6dc3c`): `window_start` 없음 → `missing_field:window_start`, `anomaly_score`가 0~1 밖 → `invalid_field:anomaly_score`.
+- 스펙트럼(`cb6dc3c`): (a) 확정 예시 → "스펙트럼" 패널 `spectrum_x/y/z` 3계열, x_step 1.0 Hz (b) "포락선 스펙트럼" 패널 `envelope_x/y/z` 3계열 (c) `freq_step_hz` 없음 → `missing_field:freq_step_hz` (d) 배열 없음 → `missing_field:spectrum_x` (e) 300 KB → `too_large` (f) 필수 필드 14개를 하나씩 빼면 `missing_field:<이름>` (g) 배열 길이가 `floor(500 / freq_step_hz) + 1`이 아니거나 여섯 개가 다르면 `invalid_field:<이름>` (h) 음수·무한 원소, `freq_step_hz` ≤ 0 → `invalid_field:<이름>`.
 - 생성: `build_conveyor`·`build_alarm`의 키 집합과 값이 `AGREEMENTS.md` A-02·A-03 예시 형식과 같고, timestamp가 정규식에 맞으며 `command_id`가 UUID4다.
 - 이미지 경로: `products/../x.jpg`, `/data/products/a.jpg`, `products/.P-1.jpg.tmp`, `gradcam/a.jpg`(products 자리), `products/a.gif` 거부.
 

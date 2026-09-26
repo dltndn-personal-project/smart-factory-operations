@@ -206,7 +206,7 @@
 - 영향: `06-dashboard.md` 3절
 
 ### D-32 스펙트럼 느슨한 해석
-- 결정: 숫자 배열 필드를 모두 계열로 보고, 이름의 `envelope` 여부로 패널을 나누며, 간격 필드가 없으면 bin 번호로 그린다.
+- 결정: (→ D-48로 대체) 숫자 배열 필드를 모두 계열로 보고, 이름의 `envelope` 여부로 패널을 나누며, 간격 필드가 없으면 bin 번호로 그린다.
 - 이유: PdM spec이 병렬로 작성 중이라 필드 이름이 확정되지 않았다. 표시 전용이라 이름이 조금 달라도 화면이 동작하는 쪽이 낫다(조율 C-12).
 - 영향: `02-mqtt.md` 3.7절, `AGREEMENTS.md` A-06
 
@@ -303,3 +303,10 @@
 - 결정: (b). `log.EventLogger.log(level, event, throttle=None, **fields)`는 `throttle`이 없으면 `level >= WARNING`일 때 억제한다.
 - 이유: 반복되어 넘치는 것은 잘못된 입력·큐 초과·DB 오류(WARNING 이상)이고, Alarm·명령 기록(INFO)은 건마다 남아야 한다. (c)는 이벤트가 늘 때마다 목록을 고쳐야 한다.
 - 영향: `01-core.md` 6절, `src/factory_operations/log.py`
+
+### D-48 Shared `cb6dc3c` 채택 (OPS-10)
+- 문맥: Shared PR #7(PdM Result·PdM Spectrum·Alarm Event DOCUMENT_CHANGE)이 merge되었다(`cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`, 조율 C-20). 조율 C-21에 따라 PLAN 순서(M5)보다 앞당겨 OPS-2 바로 뒤에 채택했다.
+- 결정: `SHARED_CONFIG.json` `contract_ref`를 이 commit으로 한다. 90-shared 1절로 INTERFACES·CONVENTIONS를 읽어 `docs/plan/02-mqtt.md` 5.1절 표와 비교했고 표 밖의 차이는 없었다. 의미(윈도우 끝 `timestamp`, Simulator 시계, retain false, `rpm == 0` 미발행, 재가동 뒤 첫 결과 = 재가동 chunk + 1초)는 A-05·A-06 가정과 같다. 형식은 확정본을 따른다: PdM Result `window_start` 필수·`anomaly_score` 0~1, PdM Spectrum 필드 전부 필수·배열 길이 `floor(500 / freq_step_hz) + 1`·원소 유한한 0 이상·`freq_step_hz > 0`. D-32의 느슨한 해석(이름 기반 계열 수집, `freq_start_hz`·`envelope_freq_step_hz`, bin 축, `no_series`)은 없앤다.
+- 테스트: D-46대로 `test_spectrum_bins_without_step`·`test_spectrum_no_series`는 이름을 두고 거부 기대로 바꿨다. 같은 이유로 `test_spectrum_single_panel`·`test_spectrum_envelope_panel`도 확정 예시 fixture로 바꿨다(확정본에서는 패널이 항상 둘이고 각 3계열이라 "패널 1개" 메시지가 성립하지 않는다). 가정 스펙트럼 fixture 3개는 지우고 `shared_pdm_spectrum.json`으로 대신했다. `pdm_result_draft.json`은 확정 형식에도 맞아 남겼다.
+- 이유: 계약 채택을 `contract_ref`와 함께 한 PR에서 추적하고(조율 C-05), 뒤 task(OPS-3A 이후)의 PdM 메시지가 처음부터 확정 형식이 되게 한다.
+- 영향: `SHARED_CONFIG.json`, `02-mqtt.md` 3.6·3.7절, `08-verification.md` 2·3.2절, `07-runtime.md` 5절, `AGREEMENTS.md` 머리말·목록·A-01·A-02·A-05·A-06·끝 표, `README.md`, `docs/COMPONENT.md`, `src/factory_operations/mqtt/payloads.py`, `tests/fixtures/payloads/`, `tests/unit/test_payloads.py`

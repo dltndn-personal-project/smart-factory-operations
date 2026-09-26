@@ -1,6 +1,6 @@
 # Factory Operations & Control 구현 spec
 
-> 상태: **확정** (2026-09-27). 조율 결정(C-00~C-15)과 `docs/ARCHITECTURE.md`(리뷰 반영본)를 근거로 남은 설계 결정을 이 spec이 정했다. PdM Result·PdM Spectrum은 생산자 확정 전 가정이다(`AGREEMENTS.md` A-05·A-06).
+> 상태: **확정** (2026-09-27). 조율 결정(C-00~C-15)과 `docs/ARCHITECTURE.md`(리뷰 반영본)를 근거로 남은 설계 결정을 이 spec이 정했다. 교차 Component 계약 기준은 Shared `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`(`contract_ref`, OPS-10에서 채택)이고, PdM Result·PdM Spectrum·Alarm Event도 그 commit에서 확정되었다(`AGREEMENTS.md` A-02·A-05·A-06).
 > 읽어야 할 때: 구현·계획 task를 시작할 때 항상 이 파일부터. 여기서 가리키는 파일(절)만 읽는다.
 
 ## 1. 읽는 규칙
@@ -82,6 +82,6 @@ ARCHITECTURE.md는 이 spec의 배경과 근거다. 두 문서가 다르면 이 
 
 - spec 변경은 해당 파일과 그것을 가리키는 파일을 같은 PR에서 고친다. 결정이 바뀌면 `DECISIONS.md`에 새 항목을 추가한다.
 - `AGREEMENTS.md`를 바꾸면 "맞출 Component"가 달라질 수 있다. PR 본문에 적고 조율 agent에 알린다. Alarm Event(A-02)를 바꾸면 Shared DOCUMENT_CHANGE도 다시 필요하다.
-- PdM Result·PdM Spectrum이 Shared에 확정되면 OPS-10에서 A-05·A-06과 `02-mqtt.md` 3.6·3.7절을 확정본에 맞춘다.
+- PdM Result·PdM Spectrum·Alarm Event는 Shared `cb6dc3c`에서 확정되었고 OPS-10이 A-02·A-05·A-06과 `02-mqtt.md` 3.6·3.7절을 확정본에 맞췄다(`DECISIONS.md` D-48). Shared 계약이 다시 바뀌면 새 commit을 `contract_ref`로 채택하는 task에서 같은 자리를 고친다.
 - spec 리뷰 기록은 `docs/reviews/`에 있다. 구현에는 필요 없다.
-- 참고한 Shared commit: `d0c997c97129141d9853a42ce6e0d1f8f7309ae9`(2026-09-27 조회한 main, 원격 Contents API로 읽음).
+- 계약 기준 Shared commit(`contract_ref`): `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`(2026-09-27, 90-shared 1절로 읽음). spec 작성 때 참고한 Shared commit: `d0c997c97129141d9853a42ce6e0d1f8f7309ae9`.
