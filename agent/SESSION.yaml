@@ -9,13 +9,15 @@ steps:
 - do: Makefile docker-test, tests/docker/conftest.py(빈 포트 고정, timescale_db session
     fixture 60초 대기, clean_db, id로만 삭제)
   check: A4
-  done: false
+  done: true
+  note: 컨테이너 이름은 spec 08 2절의 fops-test-db-<hex8> 대신 조율 agent 지시(C-23 접두사)대로 factory-operations-test-db-<hex8>.
+    재시작 테스트용 db_container_factory fixture를 더함(D-43, OPS-4B가 사용)
 - do: tests/docker/test_schema.py(객체 확인, psql ON_ERROR_STOP 재적용)
   check: A2
-  done: false
+  done: true
 - do: make docker-test 확인 후 agent/config.yaml verify에 docker 추가, validate.py --remote
   check: A1, A5
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 2: Makefile docker-test와 tests/docker/conftest.py'
+next_action: 'step 4: make docker-test 뒤 agent/config.yaml verify에 docker 추가'
