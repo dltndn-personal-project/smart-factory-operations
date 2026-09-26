@@ -1,8 +1,33 @@
-task: null
-phase: null
-base_commit: null
-started_at: null
-steps: []
+task: OPS-10
+phase: plan
+base_commit: 98e41dfa1cf376861e7b53d1386057ee16b01948
+started_at: '2026-09-26T19:07:10Z'
+steps:
+- do: SHARED_CONFIG.json contract_ref만 cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8로 변경
+  check: A1
+  done: false
+- do: 90-shared 1절로 cb6dc3c INTERFACES(PdM Result, PdM Spectrum, Alarm Event)·CONVENTIONS를
+    읽고 계획 5.1절 표와 비교(의미 차이면 멈춤)
+  check: 5.1절 밖 차이 없음을 비교표로 PR 본문에
+  done: false
+- do: 'fixture: shared_pdm_result.json·shared_alarm_event.json(원문), shared_pdm_spectrum.json(스칼라
+    원문 + seed 고정 501개×6), 가정 fixture 교체, pdm.py 템플릿, SOURCES.md'
+  check: A3
+  done: false
+- do: payloads.py 두 파서를 5.1절대로 고치고 테스트 추가·수정(bins_without_step·no_series는 이름 유지, 거부
+    기대로)
+  check: A3, A4
+  done: false
+- do: scripts/fake_feed.py가 있으면 확정 형식으로(OPS-9B 전이라 없음 확인)
+  check: A5
+  done: false
+- do: 'spec: 02 3.6·3.7절, 08 3.2절, AGREEMENTS 머리말·A-01·A-05·A-06, README 머리말·6절, 07
+    5절, COMPONENT.md, DECISIONS 채택 기록'
+  check: A6
+  done: false
+- do: make test, validate.py --remote
+  check: A2, A5
+  done: false
 attempts: {}
 evidence: {}
-next_action: null
+next_action: phase execute 후 step 1(contract_ref)부터 수행
