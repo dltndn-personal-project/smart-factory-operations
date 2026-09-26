@@ -19,10 +19,12 @@ steps:
   done: true
 - do: 개발 환경 확인(A4 명령 실행). 실패하면 compose·fake_feed 수정
   check: A4
-  done: false
+  done: true
+  note: A4 명령 통과(19초). 추가로 --speed 10으로 Interlock STOP(INTERLOCK_CRITICAL APPLIED)과 START 뒤 NORMAL 복귀,
+    화면을 확인하고 정리
 - do: docs/COMPONENT.md 실행·검증 환경 절을 실제 명령으로, spec 07 구현 메모
   check: A5
   done: false
 attempts: {}
 evidence: {}
-next_action: step 5 A4 개발 환경 확인
+next_action: step 6 COMPONENT.md 실행 절, spec 07 메모
