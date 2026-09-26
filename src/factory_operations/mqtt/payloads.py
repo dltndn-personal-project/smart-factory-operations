@@ -4,7 +4,7 @@
 `invalid_json` → `unsupported_schema_version` → 표 순서대로 `missing_field:<이름>` /
 `invalid_field:<이름>`(첫 실패 하나). 선택 필드는 없거나 틀리면 None이 되고 그 이름이 `nulled`에 남는다.
 
-PdM Result·PdM Spectrum 형식에 기대는 제품 코드는 `parse_pdm_result`, `parse_pdm_spectrum` 두 함수뿐이다
+PdM Result·PdM Spectrum 형식(Shared `cb6dc3c` 확정본)에 기대는 제품 코드는 `parse_pdm_result`, `parse_pdm_spectrum` 두 함수뿐이다
 (DECISIONS D-39). 다른 모듈은 PdM Payload의 JSON 키를 직접 읽지 않는다.
 """
 
@@ -134,9 +134,13 @@ class SpectrumPanel:
 @dataclass(frozen=True)
 class SpectrumPanels:
     sensor_id: str
-    timestamp: datetime
-    window_start: datetime | None
-    panels: tuple[SpectrumPanel, ...]
+    timestamp: datetime  # PdM Result와 같은 윈도우 끝
+    window_start: datetime
+    panels: tuple[SpectrumPanel, ...]  # (원 스펙트럼, 포락선 스펙트럼)
+    rpm: float
+    rot_hz: float  # 화면 표시선용으로 담기만 한다
+    bpfo_hz: float
+    bpfi_hz: float
 
 
 # ---------------------------------------------------------------------------
@@ -154,7 +158,8 @@ COMMANDS = ("START", "STOP")
 PDM_STATES = ("NORMAL", "CAUTION", "WARNING", "CRITICAL")
 
 SPECTRUM_MAX_BYTES = 256 * 1024
-SPECTRUM_SERIES_MIN, SPECTRUM_SERIES_MAX = 2, 4096
+SPECTRUM_ARRAYS = ("spectrum_x", "spectrum_y", "spectrum_z", "envelope_x", "envelope_y", "envelope_z")
+SPECTRUM_MAX_HZ = 500
 SPECTRUM_TITLE = "스펙트럼"
 ENVELOPE_TITLE = "포락선 스펙트럼"
 VIBRATION_MAX = 10000
@@ -481,32 +486,43 @@ def parse_vision_result(topic: str, raw: bytes) -> VisionResult | Rejected:
 
 
 def parse_pdm_result(topic: str, raw: bytes) -> PdmResult | Rejected:
-    """3.6절 (A-05 가정 형식. Shared 확정본 채택은 OPS-10)."""
+    """3.6절 (Shared `cb6dc3c` 확정본)."""
 
     def build(obj: dict[str, Any]) -> PdmResult:
         f = _Fields(obj)
         sensor_id = f.req("sensor_id", _c_sensor_id)
         timestamp = f.req("timestamp", _c_ts)
-        anomaly_score = f.req("anomaly_score", _c_number())
+        window_start = f.req("window_start", _c_ts)
+        anomaly_score = f.req("anomaly_score", _c_number(0.0, 1.0))
         health_index = f.req("health_index", _c_int(lo=0, hi=100))
         state = f.req("state", _c_enum(PDM_STATES))
-        window_start = f.opt("window_start", _c_ts)
         model_version = f.opt("model_version", _c_str(1, 64))
         return PdmResult(sensor_id, timestamp, anomaly_score, health_index, state, window_start, model_version, tuple(f.nulled))
 
     return _parse(build, raw)
 
 
-def _positive_number(v: Any) -> float | None:
-    return float(v) if is_number(v) and v > 0 else None
+def _c_positive(v: Any) -> Any:
+    return float(v) if is_number(v) and v > 0 else _BAD
 
 
-def _plain_number(v: Any) -> float | None:
-    return float(v) if is_number(v) else None
+def _spectrum_length(step: float) -> int:
+    """배열 길이 규칙 `floor(500 / freq_step_hz) + 1` (부동소수 오차 1e-9 허용)."""
+    return math.floor(SPECTRUM_MAX_HZ / step + 1e-9) + 1
+
+
+def _c_spectrum_array(n: int) -> Callable[[Any], Any]:
+    def check(v: Any) -> Any:
+        arr = _number_array(v, n, n)  # 길이 n, 유한한 수
+        if arr is None or (arr < 0).any():  # 0 이상
+            return _BAD
+        return arr
+
+    return check
 
 
 def parse_pdm_spectrum(topic: str, raw: bytes) -> SpectrumPanels | Rejected:
-    """3.7절 (표시 전용, 느슨한 해석, D-32). 숫자 배열 필드는 모두 계열이다."""
+    """3.7절 (Shared `cb6dc3c` 확정본, 표시 전용). 모든 필드가 필수다."""
     if len(raw) > SPECTRUM_MAX_BYTES:
         return Rejected("too_large")
 
@@ -514,35 +530,25 @@ def parse_pdm_spectrum(topic: str, raw: bytes) -> SpectrumPanels | Rejected:
         f = _Fields(obj)
         sensor_id = f.req("sensor_id", _c_sensor_id)
         timestamp = f.req("timestamp", _c_ts)
-        window_start = f.opt("window_start", _c_ts)
-        spectrum: list[SpectrumSeries] = []
-        envelope: list[SpectrumSeries] = []
-        for key in sorted(obj):
-            arr = _number_array(obj[key], SPECTRUM_SERIES_MIN, SPECTRUM_SERIES_MAX)
-            if arr is None:
-                continue
-            (envelope if "envelope" in key else spectrum).append(SpectrumSeries(key, arr))
-        if not spectrum and not envelope:
-            raise _Reject("no_series")
-        step = _positive_number(obj.get("freq_step_hz"))
-        start = _plain_number(obj.get("freq_start_hz"))
-        env_step = _positive_number(obj.get("envelope_freq_step_hz")) or step
-        env_start = _plain_number(obj.get("envelope_freq_start_hz"))
-        if env_start is None:
-            env_start = start
-        panels = []
-        for title, series, s, x0 in (
-            (SPECTRUM_TITLE, spectrum, step, start),
-            (ENVELOPE_TITLE, envelope, env_step, env_start),
-        ):
-            if not series:
-                continue
-            if s is None:
-                # 간격을 모르면 bin 번호로 그린다
-                panels.append(SpectrumPanel(title, 0.0, 1.0, "bin", tuple(series)))
-            else:
-                panels.append(SpectrumPanel(title, x0 if x0 is not None else 0.0, s, "Hz", tuple(series)))
-        return SpectrumPanels(sensor_id, timestamp, window_start, tuple(panels))
+        window_start = f.req("window_start", _c_ts)
+        rpm = f.req("rpm", _c_number())
+        step = f.req("freq_step_hz", _c_positive)
+        rot_hz = f.req("rot_hz", _c_number())
+        bpfo_hz = f.req("bpfo_hz", _c_number())
+        bpfi_hz = f.req("bpfi_hz", _c_number())
+        check = _c_spectrum_array(_spectrum_length(step))
+        arrays = {name: f.req(name, check) for name in SPECTRUM_ARRAYS}
+        panels = tuple(
+            SpectrumPanel(
+                title,
+                0.0,
+                step,
+                "Hz",
+                tuple(SpectrumSeries(name, arrays[name]) for name in SPECTRUM_ARRAYS if name.startswith(prefix)),
+            )
+            for title, prefix in ((SPECTRUM_TITLE, "spectrum_"), (ENVELOPE_TITLE, "envelope_"))
+        )
+        return SpectrumPanels(sensor_id, timestamp, window_start, panels, rpm, rot_hz, bpfo_hz, bpfi_hz)
 
     return _parse(build, raw)
 

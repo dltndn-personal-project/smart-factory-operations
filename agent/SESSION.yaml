@@ -20,7 +20,10 @@ steps:
 - do: payloads.py 두 파서를 5.1절대로 고치고 테스트 추가·수정(bins_without_step·no_series는 이름 유지, 거부
     기대로)
   check: A3, A4
-  done: false
+  done: true
+  note: 'test_spectrum_single_panel·test_spectrum_envelope_panel도 확정 fixture로 바꿈(확정본에서
+    패널 1개 메시지는 성립하지 않음: 원 스펙트럼 패널 3계열, 포락선 패널 3계열). 느슨한 해석(freq_start_hz, envelope_freq_step_hz,
+    bin 축, 이름 기반 계열 수집) 제거'
 - do: scripts/fake_feed.py가 있으면 확정 형식으로(OPS-9B 전이라 없음 확인)
   check: A5
   done: false
@@ -33,5 +36,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: 'step 4: payloads.py 두 파서를 5.1절대로 고치고 테스트 추가·수정(bins_without_step·no_series는
-  이름 유지, 거부 기대로)'
+next_action: 'step 5: scripts/fake_feed.py가 있으면 확정 형식으로(OPS-9B 전이라 없음 확인)'
