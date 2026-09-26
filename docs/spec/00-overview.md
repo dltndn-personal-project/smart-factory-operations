@@ -75,5 +75,6 @@ Fault Level과 State의 대응은 PdM의 Health Index 보정(목표 `100·(1−(
 | M5 계약 채택 | OPS-10 `contract_ref` | PdM Result·PdM Spectrum·Alarm Event가 Shared에 확정된 뒤 그 commit을 채택하고, 확정본과 이 spec의 차이를 고친다(조율 C-05) | `SHARED_CONFIG.json`, `src/**`, `tests/**`, `docs/spec/**` | AGREEMENTS 끝 절 |
 | M6 사람 확인 | HUM-1 (`owner: human`) | Dashboard 확인 M-01~M-10 | 없음 | 08 6절 |
 
-- M5는 Shared DOCUMENT_CHANGE merge가 착수 조건이다. 그 전에 M4까지 끝나도 된다. PdM 확정본이 이 spec의 가정과 다르면 OPS-10에서 맞춘다(`AGREEMENTS.md` A-05·A-06).
+- 최종 분해·순서·scope는 `docs/plan/00-overview.md` 2절이다(`DECISIONS.md` D-37). OPS-3·4·7·9를 A·B로 나누고, 흐름 연동 테스트가 `/readyz`와 스냅숏을 쓰므로 HTTP API(OPS-6)를 MQTT 조립(OPS-7A)보다 먼저 하며, 예시 이미지 fixture는 OPS-6이 만든다.
+- M5는 Shared DOCUMENT_CHANGE merge가 착수 조건이다(2026-09-27 충족: Shared PR #7, `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`). 그 전에 M4까지 끝나도 된다. PdM 확정본이 이 spec의 가정과 다르면 OPS-10에서 맞춘다(`AGREEMENTS.md` A-05·A-06).
 - 발견된 결함은 해당 영역의 수정 task로 추가한다. 사람 task에서 발견한 문제도 같다.

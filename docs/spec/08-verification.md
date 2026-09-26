@@ -25,8 +25,9 @@
 - `pyproject.toml` `[tool.pytest.ini_options]`: `pythonpath = ["src"]`, `testpaths = ["tests"]`, `markers = ["docker: Docker로 Mosquitto·TimescaleDB를 띄우는 연동 테스트"]`.
 - 공용 fixture(`tests/conftest.py`): `FakeClock`, `FakePublisher`(`publish` 호출을 `(topic, payload, qos, retain)` 목록으로, `connected` 조절), `FakeDbSink`(DB 큐 작업 목록), `tmp_image_root`(`products/P-00000001.jpg` 복사본), `payload_examples`(`tests/fixtures/payloads/*.json`: Shared INTERFACES 예시 5개, PdM 아키텍처 6.2절 예시, 스펙트럼 예시 3종). Sensor Vibration 예시는 원문 배열에 설명 문자열(`"… 1000개"`)이 있어 그대로 쓸 수 없으므로, 원문의 스칼라 필드와 seed 고정 난수 축별 1000개(소수 4자리)로 만든 파일을 쓴다. 나머지 예시는 원문 그대로다.
 - Docker fixture(`tests/docker/conftest.py`, 모두 `@pytest.mark.docker` 테스트에서만):
-  - `mqtt_broker`(session): `docker run -d --rm --name fops-test-mqtt-<hex8> -p 127.0.0.1::1883 eclipse-mosquitto:2.1.2-alpine mosquitto -c /mosquitto-no-auth.conf`, `docker port`로 포트를 읽고 TCP 연결이 될 때까지 최대 10초.
-  - `timescale_db`(session): `docker run -d --rm --name fops-test-db-<hex8> -e POSTGRES_USER=factory -e POSTGRES_PASSWORD=factory -e POSTGRES_DB=factory -p 127.0.0.1::5432 -v <저장소>/db/schema.sql:/docker-entrypoint-initdb.d/100_factory_operations.sql:ro timescale/timescaledb:2.30.1-pg17`. psycopg 연결과 `schema_info` 버전 1 확인이 될 때까지 최대 60초.
+  - 호스트 포트: 테스트가 빈 포트를 골라(`socket.bind(("127.0.0.1", 0))`) `-p 127.0.0.1:<port>:<컨테이너 포트>`로 고정한다. Docker 임의 포트(`-p 127.0.0.1::1883`)는 `docker restart` 뒤 새로 배정되어 재연결 테스트가 옛 포트를 보게 된다(`DECISIONS.md` D-43). 재시작 테스트(`test_db_writer.py` DB 재시작, `test_broker_restart.py`)는 세션 컨테이너를 흔들지 않도록 자기 컨테이너를 쓴다.
+  - `mqtt_broker`(session): `docker run -d --rm --name fops-test-mqtt-<hex8> -p 127.0.0.1:<port>:1883 eclipse-mosquitto:2.1.2-alpine mosquitto -c /mosquitto-no-auth.conf`, TCP 연결이 될 때까지 최대 10초.
+  - `timescale_db`(session): `docker run -d --rm --name fops-test-db-<hex8> -e POSTGRES_USER=factory -e POSTGRES_PASSWORD=factory -e POSTGRES_DB=factory -p 127.0.0.1:<port>:5432 -v <저장소>/db/schema.sql:/docker-entrypoint-initdb.d/100_factory_operations.sql:ro timescale/timescaledb:2.30.1-pg17`. psycopg 연결과 `schema_info` 버전 1 확인이 될 때까지 최대 60초.
   - `clean_db`(function): `TRUNCATE sensor_chunk, line_status_change, product, inspection, equipment_state, alarm, control RESTART IDENTITY`.
   - `running_app`(function): 실제 조립(DB 스레드, 워커, paho client, uvicorn을 스레드에서 `127.0.0.1`의 빈 포트로)으로 앱을 띄우고 `/readyz`가 200이 될 때까지(최대 15초) 기다린 뒤 base URL을 준다. `IMAGE_ROOT`는 `tmp_image_root`. 끝나면 `01-core.md` 7절 종료 순서로 멈춘다.
   - `harness`: 테스트용 paho client(발행·구독, 수신 메시지를 `(time.monotonic(), topic, payload)`로 기록). 구독은 SUBACK을 받은 뒤 반환한다. QoS 1 발행은 `wait_for_publish()`로 PUBACK까지 기다린다.
@@ -79,7 +80,7 @@
 
 ### 3.7 smoke (`scripts/smoke.py`, C-09)
 
-1. `docker build -t factory-operations:smoke --build-arg GIT_COMMIT=$(git rev-parse HEAD) .` 빌드 시간을 출력만 한다.
+1. `docker build -t factory-operations:smoke-$(git rev-parse --short=12 HEAD) --build-arg GIT_COMMIT=$(git rev-parse HEAD) .` 빌드 시간을 출력만 한다. 태그에 commit을 넣어 병렬 worktree의 smoke가 서로 다른 commit의 이미지를 쓰지 않게 한다(`DECISIONS.md` D-45).
 2. 이름 접미사 `<hex8>`로 network `fops-smoke-<hex8>`, volume `fops-smoke-img-<hex8>`을 만들고 `image-seed`와 같은 방식(07 4절)으로 예시 이미지를 넣는다.
 3. Mosquitto(`--network-alias mosquitto`, `-p 127.0.0.1::1883`), DB(`--network-alias db`, schema initdb 마운트)를 띄우고 `docker exec <db> pg_isready -h 127.0.0.1 -U factory -d factory`가 성공할 때까지 최대 60초.
 4. `docker run -d` Operations(`MQTT_URL=mqtt://mosquitto:1883`, `DATABASE_URL=postgresql://factory:factory@db:5432/factory`, `-v <volume>:/data:ro`, `-p 127.0.0.1::8080`). 이 명령이 끝난 시각부터 `/readyz`를 0.5초 간격으로 부르고 200까지 30초 이하인지 확인한다. `/healthz`의 `commit`이 빌드 인자와 같다.
@@ -132,11 +133,11 @@
 |---|---|---|
 | 기존 | | `{name: agent-files, run: "python3 agent/core/tools/validate.py"}` |
 | 1 | OPS-1 | `{name: unit, run: "make test"}` |
-| 2 | OPS-4 | `{name: docker, run: "make docker-test"}` |
-| 3 | OPS-9 | `{name: smoke, run: "make smoke"}` |
+| 2 | OPS-4A | `{name: docker, run: "make docker-test"}` |
+| 3 | OPS-9A | `{name: smoke, run: "make smoke"}` |
 
 - 전제: Docker Desktop이 실행 중이다(`HUMAN.md` H-1). 처음에는 이미지 받기와 빌드 때문에 수 분 걸린다(`check_timeout` 1800초 안).
-- `docker` 대상은 OPS-4 이후 task마다 테스트가 늘어난다. 한 번 실행 약 3분(Dashboard 지연 60초 포함)을 넘지 않게 한다.
+- `docker` 대상은 OPS-4A 이후 task마다 테스트가 늘어난다. 한 번 실행 약 3분(Dashboard 지연 60초 포함)을 넘지 않게 한다.
 
 ## 6. 수동 확인 목록 (사람 task HUM-1)
 
@@ -159,7 +160,7 @@
 
 ## 7. PLAN 반영 규칙
 
-- 사람 task는 M6에 `owner: human`으로 두고 acceptance는 `{type: manual, how: "docs/spec/08-verification.md 6절 M-01~M-10"}` 하나다. 이 task만 manual을 쓴다.
+- 사람 task는 M6에 `owner: human`으로 두고 acceptance는 6절 항목마다 하나씩(M01~M10) `{type: manual, how: "docs/spec/08-verification.md 6절 M-xx. 결과는 docs/reviews/HUM-1.md"}`다. 실패한 항목만 `pending`으로 남겨 FIX 뒤 그 항목만 다시 보기 위해서다. 이 task만 manual을 쓴다(`DECISIONS.md` D-45).
 - 사람 task에서 실패한 항목은 계획 작업이 수정 task로 추가하고, 수정 뒤 해당 항목만 다시 확인한다.
 - acceptance에는 테스트 파일·테스트 이름을 command로 묶는다(예: `.venv/bin/python -m pytest -q tests/unit/test_interlock.py`).
 - PR merge는 조율 agent가 CI 통과와 `finish` 통과 뒤에 한다(`DECISIONS.md` D-01).

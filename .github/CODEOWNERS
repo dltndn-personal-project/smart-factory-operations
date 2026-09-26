@@ -1,6 +1,6 @@
 # Component 책임자. 실제 GitHub 사용자(@user) 또는 팀(@org/team)으로 바꾼다.
 # placeholder가 남아 있는 동안 CI는 어떤 PR도 자동 승인하지 않는다.
-* @<component-책임자>
+* @dltndn
 
 # 학습 층: 회고와 lesson은 소유자 리뷰 없이 승인할 수 있다. 이것만 바꾼 PR은 CI가 자동 승인한다.
 /agent/LESSONS.yaml

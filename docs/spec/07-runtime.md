@@ -1,7 +1,7 @@
 # 07 실행 환경
 
 > 목적: 실행 관련 설정 키와 환경 변수, 로컬 실행, Dockerfile, 개발용 compose, 가짜 입력 스크립트를 정한다. integration에 약속하는 실행 조건의 원본은 `AGREEMENTS.md` A-09다.
-> 읽어야 할 때: 설정·환경 변수 추가(OPS-1), 컨테이너·compose·스크립트(OPS-9), 화면을 사람이 볼 때.
+> 읽어야 할 때: 설정·환경 변수 추가(OPS-1), 컨테이너·smoke(OPS-9A), compose·가짜 입력(OPS-9B), 화면을 사람이 볼 때.
 
 ## 1. 실행 관련 키와 환경 변수
 
@@ -77,7 +77,7 @@ CMD ["python", "-m", "factory_operations", "serve"]
 
 ## 5. 가짜 입력 (`scripts/fake_feed.py`)
 
-다른 Component 없이 화면과 흐름을 보기 위한 개발·사람 확인용 도구다. 테스트는 이 스크립트에 의존하지 않는다.
+다른 Component 없이 화면과 흐름을 보기 위한 개발·사람 확인용 도구다. 다른 테스트는 이 스크립트에 의존하지 않는다. 스크립트 자신의 메시지가 파서로 받아지는지만 `tests/unit/test_fake_feed.py`가 확인한다(`DECISIONS.md` D-44).
 
 `.venv/bin/python scripts/fake_feed.py [--mqtt mqtt://127.0.0.1:1883] [--prefix factory] [--seed 1] [--speed 1.0] [--start-id 1]`:
 

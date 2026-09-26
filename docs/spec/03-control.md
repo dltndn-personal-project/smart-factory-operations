@@ -1,7 +1,7 @@
 # 03 판단: 라인 상태, Interlock, 운영자 명령, Alarm
 
 > 목적: 도메인 워커가 메시지를 처리하는 순서, Line Status 추적과 재가동 기준 시각, Interlock STOP 규칙, 운영자 START/STOP, 명령 결과 확인, Alarm 규칙을 정한다.
-> 읽어야 할 때: `domain/line.py`, `interlock.py`, `alarm.py`, `worker.py`(OPS-3, OPS-6), 시나리오 테스트.
+> 읽어야 할 때: `domain/line.py`, `interlock.py`, `alarm.py`, `worker.py`(OPS-3A·3B, OPS-7A), 시나리오 테스트.
 
 ## 1. Line Status 추적 (`LineTracker`)
 

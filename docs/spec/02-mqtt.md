@@ -1,7 +1,7 @@
 # 02 MQTT: 연결, 구독, 입력 검증, 발행
 
 > 목적: MQTT client 동작, 구독 Topic, 입력 Payload 검증 규칙, 발행 Payload 생성과 발행 규칙을 정한다. 다른 Component와의 형식 약속의 원본은 `AGREEMENTS.md`(Shared 확정 Interface는 Shared INTERFACES)다.
-> 읽어야 할 때: `mqtt/`(OPS-2, OPS-6), 새 필드를 받거나 보낼 때.
+> 읽어야 할 때: `mqtt/`(OPS-2, OPS-7A, OPS-10), 새 필드를 받거나 보낼 때.
 
 ## 1. client
 

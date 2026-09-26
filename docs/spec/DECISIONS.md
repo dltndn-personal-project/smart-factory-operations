@@ -231,3 +231,66 @@
 - 결정: `docs/WIREFRAME.html`에 화면 배치 한 장을 둔다(외부 요청 없는 정적 HTML).
 - 이유: 칸이 많아 표만으로는 배치를 구현자가 정해야 한다. simulator와 같은 방식이다.
 - 영향: `06-dashboard.md` 5절
+
+## 7. 계획 (plan 단계, 2026-09-27)
+
+### D-37 task 분해와 순서
+- 문맥: `00-overview.md` 6절 후보는 OPS-6(MQTT와 워커)이 흐름 연동 테스트(C-04~C-06)를 갖지만, 그 테스트는 `/readyz`와 `/api/snapshot`(`wait_snapshot`)을 쓰고 둘은 OPS-7(HTTP API)이 만든다. OPS-3(모듈 다섯, 시나리오 23개), OPS-7(연동 테스트 네 파일), OPS-9(이미지·smoke·compose·가짜 입력)는 한 세션에 넘친다.
+- 선택지: (a) 후보 그대로 (b) HTTP API를 먼저(OPS-6), MQTT 조립과 연동 테스트를 뒤로(OPS-7A·7B), 큰 task를 A·B로 나눔
+- 결정: (b). OPS-3A(StateStore·LineTracker·결합)/OPS-3B(Interlock·Alarm·Processor·DB 작업 타입), OPS-6(스냅숏·HTTP API·예시 이미지 fixture), OPS-7A(paho·워커 스레드·조립·흐름 연동)/OPS-7B(지연 측정), OPS-9A(이미지·smoke)/OPS-9B(개발용 compose·fake_feed·COMPONENT.md). DB 쓰기 작업 타입은 `store/jobs.py`에 두고 OPS-3B가 만든다(M1이 M2에 의존하지 않게). DB 스레드는 도메인을 import하지 않고 콜백과 주입한 상관분석 함수로 결과를 낸다(OPS-5가 `store/`를 고치지 않아 OPS-6과 병렬 가능).
+- 이유: 선행 산출물이 없는 테스트를 요구하지 않고, task마다 한 세션·8단계 안에 끝나게 한다. OPS-10 이름은 조율 지시와 spec 여러 곳이 쓰므로 번호를 다시 매기지 않고 A·B 접미사로 나눴다.
+- 영향: `00-overview.md` 6절(계획 파일을 가리킴), 02·03·04·06·07 머리말, `08-verification.md` 5절, `docs/plan/`
+
+### D-38 설정 키는 OPS-1이 모두 만든다
+- 선택지: (a) 영역을 처음 만드는 task가 자기 절을 추가 (b) OPS-1이 모든 절을 한 번에
+- 결정: (b). 키와 기본값·범위가 spec 표에 모두 고정되어 있다.
+- 이유: `config.py`·`config/default.yaml`이 뒤 task의 scope에서 빠져 병렬 조합이 늘고, 범위 검사 테스트(`correlation.default_lag_s` 등)가 OPS-1에서 바로 가능하다.
+- 영향: `docs/plan/01-core.md` OPS-1 A7
+
+### D-39 PdM 형식 의존의 위치와 OPS-10
+- 문맥: PdM Result·PdM Spectrum은 PdM spec과 Shared DOCUMENT_CHANGE로 나중에 확정된다(조율 C-04·C-12). 그 전에 OPS-1~OPS-9B를 A-05·A-06 가정으로 진행한다.
+- 결정: PdM 형식(필드 이름·필수 여부·스펙트럼 계열 구성)에 기대는 코드는 `mqtt/payloads.py`의 두 파서, `tests/fixtures/payloads/`(PdM fixture와 fixture를 템플릿으로 쓰는 테스트·smoke용 생성 함수 `pdm.py`), `scripts/fake_feed.py`의 PdM 흉내에만 둔다. Docker 테스트와 smoke는 PdM 메시지를 `pdm.py`로만 만들고, fake_feed는 PdM fixture와 키 집합이 같은지 단위 테스트로 확인한다(Codex 리뷰 2·3). `domain/`·`web/`은 파싱된 객체만 쓴다. OPS-10은 조율 agent의 Shared merge 알림을 착수 조건으로 하고 `depends_on`은 OPS-2뿐이라 다른 task를 막지 않는다. OPS-10은 그 자리와 spec만 고치고, `timestamp` 의미·retain·정지 중 동작처럼 **의미**가 다르면 멈춘다(조율 agent가 정함, A-05).
+- 영향: `docs/plan/02-mqtt.md` 4·5절, `docs/plan/01-core.md` 1절
+
+### D-40 구현 task의 spec 수정 범위
+- 결정: 구현 task는 자기 영역 spec 파일과 `DECISIONS.md`만 고친다(scope에 적은 파일). `00-overview.md`, `08-verification.md`, `AGREEMENTS.md`, `README.md`는 OPS-10 말고는 고치지 않고, 바꿔야 하면 멈춘다.
+- 이유: 완료 정의·검증 방법·교차 약속은 계획과 조율의 기준이라 task 안에서 바뀌면 acceptance가 약해질 수 있다. 영역 세부의 오류는 task가 바로 고치는 편이 빠르다(simulator D-41과 같다).
+- 영향: `docs/plan/README.md` 5절
+
+### D-41 병렬 규칙
+- 결정: 기본은 순서대로 하나씩. 조율 agent가 속도가 필요할 때만 `docs/plan/README.md` 4절 표의 조합을 worktree로 병렬 실행한다. scope가 겹치지 않아야 하고(`DECISIONS.md`만 예외), 고정 포트 acceptance가 겹치지 않아야 한다. 뒤에 merge하는 쪽은 `origin/main`을 merge하고 verify 전체를 다시 돈다.
+- 이유: 저장소가 하나라 기본 순차가 안전하다. 공용 fixture(`tests/conftest.py`)와 설정을 OPS-1에 모아 scope를 좁혔으므로 효과가 큰 조합(OPS-5 ∥ OPS-6, 화면 줄기 ∥ 연동 줄기)이 가능하다.
+- 영향: `docs/plan/README.md` 4절
+
+### D-42 acceptance의 테스트 이름 고정
+- 결정: acceptance는 spec 08 3절 테스트를 pytest node id로 가리킨다. 없는 node id는 pytest가 실패하므로 이름을 바꾸지 않는다. 테스트 추가는 된다.
+- 이유: 파일 전체만 돌리면 핵심 테스트가 빠져도 통과한다. 이름을 고정하면 C-xx와 테스트의 대응이 PLAN에 남는다(simulator D-42와 같다).
+- 영향: 모든 구현 task의 acceptance
+
+### D-43 Docker 테스트의 호스트 포트
+- 문맥: 08 2절 fixture는 `-p 127.0.0.1::1883`(Docker 임의 포트)였다. 2026-09-27 이 맥에서 `eclipse-mosquitto:2.1.2-alpine` 컨테이너를 두 번 `docker restart`하자 호스트 포트가 55140 → 55142 → 55144로 바뀌었다. DB·broker 재시작 테스트는 앱이 같은 주소로 재연결하는지 보는 것이라 이 방식으로는 통과할 수 없다.
+- 선택지: (a) 임의 포트 유지, 재시작 뒤 앱 설정을 바꿈 (b) 테스트가 빈 포트를 골라 고정 매핑 (c) `docker pause`로 대체
+- 결정: (b). 재시작 테스트는 자기 컨테이너를 쓴다. smoke는 재시작이 없어 임의 포트를 그대로 쓴다.
+- 이유: (a)는 재연결을 시험하지 않는다. (c)는 TCP 연결이 끊기지 않아 재연결 경로를 타지 않는다. (b)는 빈 포트를 고른 뒤 `docker run`까지의 짧은 경쟁만 남는다.
+- 영향: `08-verification.md` 2절, `docs/plan/05-storage.md` 1절, `docs/plan/08-verification.md` 2·3절
+
+### D-44 fake_feed 자체 검사와 개발 환경 확인
+- 결정: `tests/unit/test_fake_feed.py`가 fake_feed의 메시지가 파서로 받아지는지·시나리오·이미지 경로·명령 적용을 확인하고, OPS-9B acceptance가 개발용 compose + fake_feed로 스냅숏과 STOP 적용을 자동 확인한다.
+- 이유: HUM-1은 이 환경으로 한다. 사람이 20분을 쓰기 전에 환경이 동작하는지 자동으로 보장한다. PdM 형식이 OPS-10에서 바뀌면 `make test`가 fake_feed 불일치를 잡는다.
+- 영향: `07-runtime.md` 5절, `docs/plan/07-runtime.md` OPS-9B
+
+### D-45 계획 Codex 리뷰 반영 (`docs/reviews/plan-codex-1.md`)
+- 결정:
+  - OPS-4를 OPS-4A(DDL, Docker DB fixture, verify `docker`, 선행 OPS-1)와 OPS-4B(DB 스레드)로 나눈다. broker 재시작 테스트는 OPS-7A에서 OPS-7B로 옮긴다(리뷰 6).
+  - smoke 이미지 태그를 `factory-operations:smoke-<commit 12자리>`로 한다. 병렬 worktree가 같은 태그를 덮어써 다른 commit의 이미지로 smoke를 도는 일을 막는다(리뷰 5).
+  - HUM-1 acceptance는 6절 항목마다 manual 하나(M01~M10)다. 실패 항목만 `pending`으로 남겨 FIX 뒤 그 항목만 다시 본다(08 7절을 이에 맞춤, 리뷰 8).
+  - OPS-1은 `config/default.yaml`의 키 집합과 기본값을 spec 설정 표 전체와 대조한다(리뷰 4).
+- 이유: 한 세션 크기, 병렬 검증의 정확성, 사람 확인의 재확인 단위, 설정 누락 방지.
+- 영향: `docs/plan/05-storage.md`, `docs/plan/08-verification.md` 3절, `docs/plan/07-runtime.md` OPS-9A, `docs/plan/01-core.md` OPS-1 A7, `08-verification.md` 3.7·7절
+
+### D-46 OPS-10 채택 대상과 확정본 차이
+- 문맥: 계획 작성 중 조율 agent가 Shared PR #7(PdM Result·PdM Spectrum·Alarm Event DOCUMENT_CHANGE) merge를 알렸다(merge commit `cb6dc3cc6900e9f129b2a06688c5e5e5f75fd0b8`). 확정본을 읽어 보니 의미는 A-05·A-06과 같고, 형식이 더 엄격하다: PdM Result `window_start` 필수·`anomaly_score` 0~1, PdM Spectrum은 `rpm`·`freq_step_hz`·`rot_hz`·`bpfo_hz`·`bpfi_hz`·`spectrum_x/y/z`·`envelope_x/y/z`가 모두 필수이고 배열 길이 `floor(500 / freq_step_hz) + 1`, 원소는 유한한 0 이상. Alarm Event는 A-02와 같다.
+- 선택지: (a) OPS-2부터 확정 형식으로 구현(spec 02 3.6·3.7절을 이 PR에서 고침) (b) OPS-2는 확정 spec대로(가정) 두고 OPS-10이 채택과 함께 맞춤
+- 결정: (b). OPS-10의 채택 대상을 `cb6dc3c`로 고정하고 차이를 `docs/plan/02-mqtt.md` 5.1절 표로 적어 acceptance로 검사한다. 느슨한 해석 테스트 두 개(`test_spectrum_bins_without_step`, `test_spectrum_no_series`)는 이름을 두고 기대값을 거부로 바꾼다. 계약에 맞춰 검사를 더 엄격하게 하는 변경이라 acceptance 약화가 아니다. OPS-2 바로 뒤에 OPS-10을 하도록 조율 agent에 권장한다.
+- 이유: 계약 채택은 `contract_ref`와 함께 한 PR에서 추적되어야 하고(조율 C-05), spec 수정·채택을 한 task에 모으면 PdM 형식 의존 자리(D-39)만 고치면 된다. OPS-2 바로 뒤에 하면 되돌리는 비용은 파서 두 개와 테스트 몇 개뿐이다.
+- 영향: `docs/plan/02-mqtt.md` 5절, `docs/plan/00-overview.md`, `docs/plan/README.md` 4·6절, `00-overview.md` 6절
