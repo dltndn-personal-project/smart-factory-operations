@@ -1,11 +1,11 @@
 task: OPS-1
-phase: plan
+phase: execute
 base_commit: d02ecfa36bc6146ec3bd9449ee53831336406669
 started_at: '2026-09-26T18:49:46Z'
 steps:
 - do: .gitignore(.venv/, __pycache__/, .pytest_cache/, data/, .env) 작성
   check: A9
-  done: false
+  done: true
 - do: pyproject.toml(pytest 설정), requirements*.txt(07 7절), Makefile(venv·test·run),
     .env.example
   check: A8
@@ -28,4 +28,5 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: phase execute 후 step 1(.gitignore)부터 수행
+next_action: 'step 2: pyproject.toml(pytest 설정), requirements*.txt(07 7절), Makefile(venv·test·run),
+  .env.example'
