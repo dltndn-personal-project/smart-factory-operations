@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-if TYPE_CHECKING:  # conftest는 import하지 않는다(fixture로만 받는다)
-    from conftest import DbContainer
+if TYPE_CHECKING:
+    from .conftest import DbContainer
 
 SCHEMA_SQL = Path(__file__).resolve().parents[2] / "db" / "schema.sql"
 

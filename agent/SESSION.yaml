@@ -10,8 +10,10 @@ steps:
     fixture 60초 대기, clean_db, id로만 삭제)
   check: A4
   done: true
-  note: 컨테이너 이름은 spec 08 2절의 fops-test-db-<hex8> 대신 조율 agent 지시(C-23 접두사)대로 factory-operations-test-db-<hex8>.
-    재시작 테스트용 db_container_factory fixture를 더함(D-43, OPS-4B가 사용)
+  note: '컨테이너 이름은 spec 08 2절의 fops-test-db-<hex8> 대신 조율 agent 지시(C-23 접두사)대로 factory-operations-test-db-<hex8>.
+    재시작 테스트용 db_container_factory fixture를 더함(D-43, OPS-4B가 사용). tests/docker/__init__.py로
+    패키지화: 없으면 이 폴더 conftest가 sys.modules["conftest"]를 덮어 tests/unit/test_interlock.py의
+    `from conftest import FakeDbSink`가 깨진다'
 - do: tests/docker/test_schema.py(객체 확인, psql ON_ERROR_STOP 재적용)
   check: A2
   done: true
