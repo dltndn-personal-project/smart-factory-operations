@@ -310,3 +310,10 @@
 - 테스트: D-46대로 `test_spectrum_bins_without_step`·`test_spectrum_no_series`는 이름을 두고 거부 기대로 바꿨다. 같은 이유로 `test_spectrum_single_panel`·`test_spectrum_envelope_panel`도 확정 예시 fixture로 바꿨다(확정본에서는 패널이 항상 둘이고 각 3계열이라 "패널 1개" 메시지가 성립하지 않는다). 가정 스펙트럼 fixture 3개는 지우고 `shared_pdm_spectrum.json`으로 대신했다. `pdm_result_draft.json`은 확정 형식에도 맞아 남겼다.
 - 이유: 계약 채택을 `contract_ref`와 함께 한 PR에서 추적하고(조율 C-05), 뒤 task(OPS-3A 이후)의 PdM 메시지가 처음부터 확정 형식이 되게 한다.
 - 영향: `SHARED_CONFIG.json`, `02-mqtt.md` 3.6·3.7절, `08-verification.md` 2·3.2절, `07-runtime.md` 5절, `AGREEMENTS.md` 머리말·목록·A-01·A-02·A-05·A-06·끝 표, `README.md`, `docs/COMPONENT.md`, `src/factory_operations/mqtt/payloads.py`, `tests/fixtures/payloads/`, `tests/unit/test_payloads.py`
+
+### D-49 상관분석 합성 데이터의 seed (OPS-5)
+- 문맥: 08 3.4절의 합성 데이터(점수 30초 계단, 수준 `uniform(0, 1)`, 제품 2초 간격, 불량 확률 `0.05 + 0.6 × score(t − 13)`)는 표본이 300개뿐이고 계단 폭(30초)이 lag 범위와 같아 lag 곡선의 봉우리가 완만하다(lag 1초 차이에 기대 계수 약 0.02). seed 0~49에서 `compute`를 돌리면 31개가 두 기대(`best.lag_s` 12~14, `at_default.pearson > 0.3`)를 모두 만족하고 나머지는 한쪽을 벗어난다(최저 `at_default.pearson` 0.23, `best.lag_s` 5~17). seed 0~199의 lag별 평균 곡선은 lag 13에서 최대(0.3597)이고 `at_default.pearson` 평균은 0.36이다.
+- 선택지: (a) seed 하나를 고정(0) (b) 여러 seed 평균으로 검사 (c) 데이터 규칙을 바꿈(표본 수·수준 분포)
+- 결정: (a). `tests/unit/test_correlation.py`의 `synthetic(seed=0)`이고, `tests/docker/test_correlation_db.py`도 같은 생성 규칙과 seed 0을 쓴다. 08 3.4절 규칙과 acceptance 기대값은 바꾸지 않는다.
+- 이유: 08 3.4절은 "seed 고정"만 정하고 값은 정하지 않는다. 규칙과 기대값을 그대로 두고 방법의 정확성(평균 곡선 봉우리 13초, 계수는 scipy 값의 4자리 반올림)은 별도로 확인했다. (b)·(c)는 acceptance 명령이 가리키는 테스트의 의미를 바꾼다. 기본 seed 0은 고른 값이 아니라 첫 값이다.
+- 영향: `tests/unit/test_correlation.py`, `tests/docker/test_correlation_db.py`
