@@ -8,7 +8,7 @@ steps:
   done: true
 - do: web/snapshot.py build_snapshot(view, now_wall, now_mono, cfg) — 06 3절 JSON·필드 규칙, 4절 stale, 진동 min/max 솎기, 스펙트럼 소수 4자리, DB 요약·상관분석 JSON 변환
   check: A5, python -c "import factory_operations.web.snapshot"
-  done: false
+  done: true
 - do: web/images.py — rel_path(products|gradcam) 검사, IMAGE_ROOT 아래 파일, 확장자로 Content-Type
   check: A5
   done: false
@@ -20,4 +20,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 2 web/snapshot.py 작성
+next_action: step 3 web/images.py
