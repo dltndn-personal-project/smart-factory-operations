@@ -89,12 +89,12 @@ factory-operations/
 
 - stdout에 한 줄 JSON: `{"ts": iso_ms, "level": "INFO", "logger": "...", "event": "...", ...필드}`. `logging.level` 이상만 쓴다.
 - 이벤트 이름: `mqtt_connected`, `mqtt_disconnected`, `message_rejected`(topic, reason, payload 앞 200바이트), `queue_overflow`, `alarm_raised`, `command_published`, `command_result`, `interlock_pending_timeout`, `db_connected`, `db_error`, `db_schema_missing`, `correlation_done`(DEBUG).
-- 같은 (event, topic, reason) 조합은 10초에 한 번만 쓰고, 그 사이 억제한 개수를 다음 줄의 `suppressed` 필드로 붙인다. 센서 메시지(초당 10개)가 계속 잘못되어도 로그가 넘치지 않게 하기 위해서다.
+- 같은 (event, topic, reason) 조합은 10초에 한 번만 쓰고, 그 사이 억제한 개수를 다음 줄의 `suppressed` 필드로 붙인다. 센서 메시지(초당 10개)가 계속 잘못되어도 로그가 넘치지 않게 하기 위해서다. 억제는 WARNING 이상 이벤트(`message_rejected`, `queue_overflow`, `db_error` 등)에 기본으로 적용하고, INFO 이하(`alarm_raised`, `command_published`, `command_result` 등 건마다 남겨야 하는 기록)는 억제하지 않는다. 호출에서 `throttle=`로 바꿀 수 있다(`DECISIONS.md` D-47).
 - Production 모니터링 스택은 두지 않는다(Shared 13절).
 
 ## 7. 수명 주기
 
-`python -m factory_operations serve`가 설정을 읽고 `uvicorn.run(app, host=http.host, port=http.port, log_config=None)`을 부른다. FastAPI lifespan이 다음 순서로 시작하고 반대 순서로 끝낸다.
+`python -m factory_operations serve`가 설정을 읽고 `uvicorn.run(app, host=http.host, port=http.port, log_config=None, access_log=False)`를 부른다. uvicorn 로그도 6절 JSON 형식으로 나오고, 요청마다의 access 로그는 쓰지 않는다(화면이 1초마다 요청하므로). FastAPI lifespan이 다음 순서로 시작하고 반대 순서로 끝낸다.
 
 1. 설정·로그 준비, `StateStore` 생성, 시작 로그(설정 요약, `GIT_COMMIT`).
 2. DB 스레드 시작. 연결 실패여도 기동은 계속한다(05 4절).

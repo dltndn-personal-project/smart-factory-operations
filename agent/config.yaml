@@ -5,6 +5,7 @@
 # 추가 시점과 명령은 docs/spec/08-verification.md 5절에 고정되어 있다(DECISIONS D-05).
 verify:
   - {name: agent-files, run: "python3 agent/core/tools/validate.py"}
+  - {name: unit, run: "make test"}
 
 budget:
   verify_attempts: 3            # 같은 검증 항목이 이 횟수만큼 실패하면 멈춘다

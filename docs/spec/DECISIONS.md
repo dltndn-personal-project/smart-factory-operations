@@ -294,3 +294,12 @@
 - 결정: (b). OPS-10의 채택 대상을 `cb6dc3c`로 고정하고 차이를 `docs/plan/02-mqtt.md` 5.1절 표로 적어 acceptance로 검사한다. 느슨한 해석 테스트 두 개(`test_spectrum_bins_without_step`, `test_spectrum_no_series`)는 이름을 두고 기대값을 거부로 바꾼다. 계약에 맞춰 검사를 더 엄격하게 하는 변경이라 acceptance 약화가 아니다. OPS-2 바로 뒤에 OPS-10을 하도록 조율 agent에 권장한다.
 - 이유: 계약 채택은 `contract_ref`와 함께 한 PR에서 추적되어야 하고(조율 C-05), spec 수정·채택을 한 task에 모으면 PdM 형식 의존 자리(D-39)만 고치면 된다. OPS-2 바로 뒤에 하면 되돌리는 비용은 파서 두 개와 테스트 몇 개뿐이다.
 - 영향: `docs/plan/02-mqtt.md` 5절, `docs/plan/00-overview.md`, `docs/plan/README.md` 4·6절, `00-overview.md` 6절
+
+## 8. 구현 (구현 task, 2026-09-27)
+
+### D-47 로그 억제 대상 (OPS-1)
+- 문맥: 01 6절은 "같은 (event, topic, reason) 조합은 10초에 한 번"이라고만 적어, 글자 그대로면 `alarm_raised`처럼 topic·reason이 없는 이벤트도 10초 안의 두 번째 기록(예: WARNING 뒤 CRITICAL Alarm)이 빠진다.
+- 선택지: (a) 모든 이벤트에 억제 (b) WARNING 이상에만 기본 억제, 호출에서 `throttle=`로 바꿈 (c) 억제할 이벤트 이름 목록을 코드에 둠
+- 결정: (b). `log.EventLogger.log(level, event, throttle=None, **fields)`는 `throttle`이 없으면 `level >= WARNING`일 때 억제한다.
+- 이유: 반복되어 넘치는 것은 잘못된 입력·큐 초과·DB 오류(WARNING 이상)이고, Alarm·명령 기록(INFO)은 건마다 남아야 한다. (c)는 이벤트가 늘 때마다 목록을 고쳐야 한다.
+- 영향: `01-core.md` 6절, `src/factory_operations/log.py`
