@@ -20,7 +20,8 @@ steps:
   note: 컨테이너 이름은 기존 DB fixture와 같은 factory-operations-test-mqtt-<hex8>(조율 C-23). 앱마다 고유 Topic 접두사·client_id로 세션 broker retained 메시지 격리. OPS-7B용 broker_container_factory·app_factory 추가
 - do: 'tests/docker/test_app_flow.py: test_rows_and_joins, test_stop_result_recorded, test_operator_start_published'
   check: A3, A4
-  done: false
+  done: true
+  note: A3·A4 외에 readyz·운영자 STOP 테스트 2개 추가
 - do: 'tests/unit/test_mqtt_client.py: 가짜 paho client로 publish 끊김·on_message·overflow'
   check: A5
   done: false
@@ -29,4 +30,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 5 test_app_flow
+next_action: step 6 test_mqtt_client
