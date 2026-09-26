@@ -1,0 +1,55 @@
+# 모든 설정 키의 기본값 (docs/spec/01-core.md 4절). 키의 원본 표:
+#   http, mqtt.url, db.url, paths, logging → 07-runtime.md 1절
+#   mqtt의 나머지 → 02-mqtt.md 1절
+#   line, interlock → 03-control.md 5절
+#   join, correlation → 04-analysis.md 3절
+#   db의 나머지 → 05-storage.md 6절
+#   pdm, dashboard → 06-dashboard.md 6절
+# 키를 추가하거나 기본값을 바꾸면 원본 표와 이 파일을 같은 PR에서 고친다.
+http:
+  host: 0.0.0.0
+  port: 8080
+mqtt:
+  url: mqtt://localhost:1883
+  client_id: factory-operations
+  topic_prefix: factory
+  keepalive_s: 30
+  reconnect_min_s: 1
+  reconnect_max_s: 10
+  max_queued: 100
+db:
+  url: postgresql://factory:factory@localhost:5432/factory
+  batch_period_s: 1.0
+  reconnect_interval_s: 2.0
+  summary_period_s: 2.0
+paths:
+  image_root: ./data
+logging:
+  level: INFO
+line:
+  sensor_id: motor01
+interlock:
+  pending_timeout_s: 5.0
+join:
+  max_gap_s: 5.0
+correlation:
+  period_s: 10
+  lag_min_s: 0
+  lag_max_s: 30
+  lag_step_s: 1
+  default_lag_s: 13
+  min_samples: 20
+  bin_s: 30
+  window_s: null
+pdm:
+  history_s: 120
+  stale_s: 2.0
+dashboard:
+  line_stale_s: 3.0
+  spectrum_stale_s: 3.0
+  vibration_stale_s: 1.0
+  vibration_window_chunks: 10
+  vibration_buckets: 500
+  recent_inspections: 12
+  recent_alarms: 20
+  recent_controls: 20
