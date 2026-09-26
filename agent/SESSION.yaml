@@ -27,7 +27,8 @@ steps:
   done: true
 - do: make test, make docker-test, spec 01·02 구현 메모
   check: A1, A2
-  done: false
+  done: true
+  note: make test 156 passed, make docker-test 16 passed(21.5초). spec 01 2·7절·02 1절 구현 메모, D-50
 attempts: {}
 evidence: {}
-next_action: step 7 make test, make docker-test, spec 메모
+next_action: agent.py verify
