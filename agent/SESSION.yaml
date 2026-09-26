@@ -22,7 +22,8 @@ steps:
     고침'
 - do: tests/unit/test_static.py, make test, make run으로 화면 수동 확인(선택)
   check: A1, A2, A3, A4
-  done: false
+  done: true
+  note: spec 06 5절 끝에 구현 메모(OPS-8) 추가
 attempts: {}
 evidence: {}
-next_action: step 5 tests/unit/test_static.py 작성, make test
+next_action: agent.py verify (Docker 재개 뒤)
