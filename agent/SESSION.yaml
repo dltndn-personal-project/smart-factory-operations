@@ -10,7 +10,7 @@ steps:
 - do: static/style.css — CSS 변수, prefers-color-scheme 밝은·어두운 테마, 상태 색(RUNNING 초록·STOPPED 빨강, State 4색·stale
     회색)
   check: A4 test_color_scheme
-  done: false
+  done: true
 - do: static/plot.js — drawLines, drawBands, drawBars(canvas 2D, 축 눈금·범례·가로선)
   check: node 없이 파일 존재, A3 test_static_served
   done: false
@@ -23,4 +23,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 2 static/style.css 작성
+next_action: step 3 static/plot.js 작성
