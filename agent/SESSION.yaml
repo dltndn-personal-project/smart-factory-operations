@@ -1,11 +1,12 @@
 task: OPS-7B
-phase: plan
+phase: execute
 base_commit: 38a781177e1439207fa62e39e58729195be24543
 started_at: '2026-09-26T21:08:05Z'
 steps:
 - do: 'tests/docker/test_interlock_latency.py: 08 4.2절 5회(STOPPED→RUNNING, reference_time 확인, CRITICAL 발행 직전 monotonic → STOP 수신 ≤ 1.0초, Alarm Event, APPLIED·STOPPED 응답, pending_stop null 확인)'
   check: A1
-  done: false
+  done: true
+  note: 5회 최대 46.5 ms(첫 실행)
 - do: 'tests/docker/test_dashboard_latency.py: 08 4.1절 60초 부하, 반영 조건 일곱 가지, 0.2초 간격 스냅숏, r_max, p50·p95·max 출력'
   check: A2
   done: false
@@ -17,4 +18,4 @@ steps:
   done: false
 attempts: {}
 evidence: {}
-next_action: step 1 test_interlock_latency.py
+next_action: step 2 test_dashboard_latency.py
