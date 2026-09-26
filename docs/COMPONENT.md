@@ -67,6 +67,6 @@ task `scope` glob의 기준이다. 경로별 파일은 해당 task가 만든다(
   ```
   포트가 겹치면(예: simulator 단독 compose의 1883) `FOPS_HTTP_PORT`·`FOPS_MQTT_PORT`·`FOPS_DB_PORT`를 바꾸고 `make feed` 대신 `.venv/bin/python scripts/fake_feed.py --mqtt mqtt://127.0.0.1:<FOPS_MQTT_PORT>`. 시나리오를 빨리 보려면 `--speed 10`.
 - 로컬 실행(Docker 없이 앱만): `make venv` → `docker compose up -d mosquitto db` → `make run`(http://localhost:8080) → `make feed`. 이미지는 `IMAGE_ROOT`(기본 `./data`)에서 읽으므로 `mkdir -p data/products && cp tests/fixtures/images/*.jpg data/products/`로 넣는다.
-- 컨테이너: 저장소 루트 `Dockerfile`, 컨테이너 포트 8080, 필수 환경 변수 `MQTT_URL`, `DATABASE_URL`, `IMAGE_ROOT`. 기동 확인은 `/healthz`(프로세스), 준비 확인은 `/readyz`(MQTT 연결 + DB 스키마 확인)다(`docs/spec/AGREEMENTS.md` A-09).
+- 컨테이너: 저장소 루트 `Dockerfile`, 컨테이너 포트 8080, 필수 환경 변수 `MQTT_URL`, `DATABASE_URL`, `IMAGE_ROOT`. 기동 확인은 `/healthz`(프로세스), 준비 확인은 `/readyz`(MQTT 연결·구독 SUBACK 수신 + DB 스키마 확인, spec D-50)다(`docs/spec/AGREEMENTS.md` A-09).
 - 필요한 도구: Python 3.12(venv·pip), Docker Desktop, GNU Make, `gh`(로그인). 호스트의 `mosquitto`·`psql`은 쓰지 않는다(컨테이너 안의 것을 쓴다).
 - 검증: `make test`(단위), `make docker-test`(Mosquitto·TimescaleDB 연동), `make smoke`(이미지 빌드와 컨테이너 흐름). 공통 검증 명령은 `agent/config.yaml`의 `verify`에 있다(`docs/spec/08-verification.md` 5절).

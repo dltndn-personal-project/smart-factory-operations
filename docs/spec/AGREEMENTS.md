@@ -248,7 +248,7 @@ services:
 - 포트: 컨테이너 8080 HTTP 하나(Dashboard와 API). 호스트는 `127.0.0.1`에만 노출한다. simulator 8000과 겹치지 않는다.
 - 환경 변수: 위 세 개가 필수다. 선택: `TOPIC_PREFIX`(기본 `factory`), `HTTP_PORT`(기본 8080), `LOG_LEVEL`(기본 `INFO`).
 - Image Storage: 공유 named volume을 읽기 전용(`:ro`)으로 마운트한다.
-- 기동 확인: `GET /healthz` 200은 프로세스가 떴다는 뜻이다(이미지 HEALTHCHECK). `GET /readyz` 200은 MQTT 연결과 DB 스키마 확인이 모두 끝났다는 뜻이며 E2E 시작 조건으로 쓴다. Broker·DB가 늦게 떠도 Operations는 기동하고 재연결한다(MQTT 1~10초, DB 2초 간격).
+- 기동 확인: `GET /healthz` 200은 프로세스가 떴다는 뜻이다(이미지 HEALTHCHECK). `GET /readyz` 200은 MQTT 연결·구독(SUBACK 수신, D-50)과 DB 스키마 확인이 모두 끝났다는 뜻이며 E2E 시작 조건으로 쓴다. Broker·DB가 늦게 떠도 Operations는 기동하고 재연결한다(MQTT 1~10초, DB 2초 간격).
 - `/healthz` 응답의 `commit`으로 실행 중인 이미지의 commit을 확인할 수 있다.
 - 컨테이너는 root로 실행한다.
 

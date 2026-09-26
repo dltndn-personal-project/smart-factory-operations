@@ -37,7 +37,7 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
         text: Line Status online false(다른 필드 없음)를 받고, last_command.result가 틀리면 last_command만 null이 되며, Vision Result는 confidence·bbox·gradcam_path 키가 없어도 받는다 (3.3·3.5절)
         check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_line_offline_only tests/unit/test_payloads.py::test_bad_last_command_nulls_only_it tests/unit/test_payloads.py::test_vision_missing_optional_keys"}
       - id: A5
-        text: 스펙트럼 (a) spectrum_x/y/z + freq_step_hz → 패널 1개·계열 3개·x_step 1.0 Hz (b) + envelope_y → 패널 2개 (c) 간격 없음 → x_unit bin (d) 배열 없음 → no_series (e) 300 KB → too_large (3.7절)
+        text: 스펙트럼(cb6dc3c 확정본, D-48) (a) 확정 예시 → 원 스펙트럼 패널 3계열 1.0 Hz, (b) 포락선 패널 3계열, (c) freq_step_hz 없음 → missing_field, (d) 배열 없음 → missing_field:spectrum_x, (e) 300 KB → too_large (3.7절)
         check: {type: command, run: "make venv >/dev/null && .venv/bin/python -m pytest -q tests/unit/test_payloads.py::test_spectrum_single_panel tests/unit/test_payloads.py::test_spectrum_envelope_panel tests/unit/test_payloads.py::test_spectrum_bins_without_step tests/unit/test_payloads.py::test_spectrum_no_series tests/unit/test_payloads.py::test_spectrum_too_large"}
       - id: A6
         text: build_conveyor·build_alarm의 키 집합과 값이 A-03(Shared Conveyor Control 예시)·A-02 형식과 같고, timestamp가 CONVENTIONS 정규식에 맞으며 command_id가 UUID4다 (4.1절)
@@ -65,7 +65,7 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
    gh api --method GET repos/dltndn-personal-project/smart-factory-pdm/contents/docs/ARCHITECTURE.md \
      -f ref=db9b7e79ce2329104d611ab52c509e74c6b927dd -H 'Accept: application/vnd.github.raw+json'   # 6.2절 예시
    ```
-   파일: `shared_sensor_vibration.json`(원문 스칼라 필드 + seed 고정 축별 1000개, 소수 4자리), `shared_product_created.json`, `shared_vision_result.json`, `shared_conveyor_control.json`, `shared_line_status.json`(원문 그대로), `pdm_result_draft.json`(PdM 6.2절 예시 그대로), `pdm_spectrum_basic.json`·`pdm_spectrum_envelope.json`·`pdm_spectrum_nostep.json`(spec 08 3.2절 (a)~(c), 501값). `SOURCES.md`에 파일마다 출처(저장소·commit·절 또는 생성 방법)를 적는다. → A9
+   파일: `shared_sensor_vibration.json`(원문 스칼라 필드 + seed 고정 축별 1000개, 소수 4자리), `shared_product_created.json`, `shared_vision_result.json`, `shared_conveyor_control.json`, `shared_line_status.json`(원문 그대로), `pdm_result_draft.json`(PdM 6.2절 예시 그대로), `pdm_spectrum_basic.json`·`pdm_spectrum_envelope.json`·`pdm_spectrum_nostep.json`(spec 08 3.2절 (a)~(c), 501값. OPS-10에서 지우고 `shared_pdm_spectrum.json`으로 대신했다, D-48). `SOURCES.md`에 파일마다 출처(저장소·commit·절 또는 생성 방법)를 적는다. → A9
 2. `topics.py`: 접두사로 Topic 8개, 수신 Topic → 입력 종류와 `+` 자리 값. → A8
 3. `payloads.py` 공통 규칙(3.1절)과 `rel_path`. → A3, A7
 4. 파서 6종과 결과 dataclass(`SensorChunk`, `LineStatus`/`LineOffline`, `ProductCreated`, `VisionResult`, `PdmResult`, `SpectrumPanels`), `Rejected(reason)`. 진동 배열은 numpy float32와 `isfinite`. → A2, A4, A5
@@ -75,7 +75,7 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
 
 - `PdmResult`·`SpectrumPanels`를 만드는 두 파서가 PdM 형식에 기대는 유일한 제품 코드다(01 계획 1절, D-39). 다른 모듈에서 PdM Payload의 JSON 키를 직접 읽지 않는다. 뒤 task의 연동 테스트(OPS-7A·7B)와 smoke(OPS-9A)는 PdM 메시지를 `pdm.py`로만 만든다.
 
-읽을 spec: 02 2~4절, `AGREEMENTS.md` A-01~A-07, 01 5절(`parse_ts`), 08 2·3.2절, D-32.
+읽을 spec: 02 2~4절, `AGREEMENTS.md` A-01~A-07, 01 5절(`parse_ts`), 08 2·3.2절, D-32(OPS-10에서 D-48로 대체).
 
 ## 3. OPS-7A MQTT 연결과 앱 조립
 
@@ -136,7 +136,7 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
 ```
 
 단계 개요:
-1. `mqtt/client.py`: 02 1절 기동 순서, `on_connect` 구독 한 번, `on_message` → `Inbound` `put_nowait`(가득 차면 카운터·`queue_overflow` 로그), `publish()`(끊김이면 False, 반환 코드 확인). `mqtt_connected`를 StateStore에 둔다. → A5
+1. `mqtt/client.py`: 02 1절 기동 순서, `on_connect` 구독 한 번(그 SUBACK을 받으면 `mqtt_connected` true, D-50), `on_message` → `Inbound` `put_nowait`(가득 차면 카운터·`queue_overflow` 로그), `publish()`(끊김이면 False, 반환 코드 확인). `mqtt_connected`를 StateStore에 둔다. → A5
 2. `domain/worker.py`에 스레드 루프 추가: `get(timeout=0.1)` → OPS-3B `Processor.handle`, 매 0.1초 `tick`, 종료 표시(01 2절). 파싱은 워커에서.
 3. `app.py` lifespan(01 7절 순서): StateStore → DB 스레드(OPS-4B, 요약·상관분석 콜백을 StateStore에 연결, 상관분석 계산은 OPS-5 함수) → 워커 → MQTT → HTTP(OPS-6 `create_app`에 inbound 큐 전달). 종료 역순과 제한 시간. `__main__.py serve`. → A6, A7
 4. `tests/docker/conftest.py`에 `mqtt_broker`(빈 포트 고정, D-43), `running_app`(uvicorn을 스레드에서 빈 포트로, `/readyz` 200까지 15초. broker·DB 주소를 인자로 받아 OPS-7B의 재시작 테스트가 자기 broker 컨테이너로 쓸 수 있게), `harness`(SUBACK·PUBACK 대기), `wait_snapshot`, PdM 메시지는 `tests/fixtures/payloads/pdm.py`로 만든다(D-39).
@@ -144,7 +144,7 @@ spec 00 6절은 OPS-6을 "MQTT와 워커", OPS-7을 "HTTP API"로 두었지만, 
 6. `tests/unit/test_mqtt_client.py`(paho client 객체를 가짜로 바꿔 끼움). → A5
 7. `make test`, `make docker-test`. → A1, A2
 
-읽을 spec: 01 2·3·7절, 02 1·4·5절, 03 2절(처리 순서)·3.3절, 05 3절(DB 스레드 시작·종료), 06 2절(`/readyz`), 08 2·3.6절, D-14·D-16·D-20·D-33.
+읽을 spec: 01 2·3·7절, 02 1·4·5절, 03 2절(처리 순서)·3.3절, 05 3절(DB 스레드 시작·종료), 06 2절(`/readyz`), 08 2·3.6절, D-14·D-16·D-20·D-33·D-50.
 
 ## 4. PdM 형식 의존의 위치
 

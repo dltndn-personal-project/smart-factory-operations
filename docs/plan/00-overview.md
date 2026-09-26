@@ -16,7 +16,7 @@
 | M5 계약 채택 | Shared 확정본(PdM Result·PdM Spectrum·Alarm Event, `cb6dc3c`)을 `contract_ref`로 채택하고 파서를 맞춤 | OPS-10 | 없음 | + `gh` 로그인(Shared merge는 충족) | OPS-2 바로 뒤면 30초 미만, M4 뒤면 5~6분 |
 | M6 사람 확인 | 사람이 Dashboard 확인 목록을 통과시킴 | HUM-1 (`owner: human`) | 없음 | 맥북 Chrome·Safari, Docker | 없음(사람 약 20분) |
 
-M5는 M4 뒤에 두었지만 다른 단계를 막지 않는다(HUM-1은 OPS-10에 의존하지 않는다). 착수 조건인 Shared merge는 이 계획 PR 작성 중에 충족되었다(`cb6dc3c`). 그래서 조율 agent가 OPS-2 바로 뒤로 끼워 넣는 것을 권장한다(`README.md` 4절, `02-mqtt.md` 5절).
+M5는 M4 뒤에 두었지만 다른 단계를 막지 않는다(HUM-1은 OPS-10에 의존하지 않는다). 착수 조건인 Shared merge는 이 계획 PR 작성 중에 충족되었다(`cb6dc3c`). 그래서 조율 agent가 OPS-2 바로 뒤로 끼워 넣는 것을 권장한다(`README.md` 4절, `02-mqtt.md` 5절). 실제로 OPS-2 바로 뒤에 실행했다(조율 C-21, D-48).
 
 PLAN.yaml에 넣을 milestone 블록(M0은 그대로 둔다. D-02·D-03):
 

@@ -9,7 +9,7 @@
 2. 계획 파일은 사람이 읽는 원본이고, `agent/PLAN.yaml`은 도구(`agent.py`)가 실행하는 사본이다. 두 곳의 task 블록(id, milestone, type, title, why, depends_on, scope, acceptance, size, owner, contract)은 같아야 한다.
 3. 다르면 **PLAN.yaml이 이긴다**. 발견한 agent는 작업을 계속하고 PR 본문에 차이를 적는다. 조율 agent가 계획 파일을 PLAN.yaml에 맞게 고친다.
 4. 계획 파일의 단계 개요와 "읽을 spec"은 PLAN.yaml에 없다. `20-plan.md`에서 `SESSION.yaml` steps를 쓸 때 출발점으로 쓴다(8개 이하).
-5. 설계 결정은 `docs/spec/DECISIONS.md` 하나에 둔다. 이 계획의 결정은 D-37~D-46이다(D-45는 Codex 리뷰 반영, D-46은 Shared 확정 반영).
+5. 설계 결정은 `docs/spec/DECISIONS.md` 하나에 둔다. 이 계획의 결정은 D-37~D-46이다(D-45는 Codex 리뷰 반영, D-46은 Shared 확정 반영). 구현 task가 더한 결정은 D-47(로그 억제 대상, OPS-1), D-48(Shared `cb6dc3c` 채택, OPS-10), D-49(상관분석 합성 데이터 seed, OPS-5, 조율 C-27), D-50(`mqtt_connected`는 SUBACK 뒤 true, OPS-7A)이다.
 
 ## 2. task → 계획 파일 → spec
 
@@ -46,7 +46,7 @@ OPS-10은 예외다. `depends_on`은 OPS-2뿐이고 착수 조건은 **조율 ag
 병렬은 조율 agent가 속도가 필요할 때만 쓴다(D-41). 조건:
 - 두 task 모두 선행이 `done`이다.
 - scope가 겹치지 않는다(`fnmatch`, `*`는 `/`를 포함). `agent/config.yaml`, `Makefile`, `docs/spec/*` 파일 하나라도 겹치면 안 된다. 예외는 `docs/spec/DECISIONS.md`(끝에 추가만 하므로 아래 merge 절차로 해결).
-- 고정 포트를 쓰는 acceptance가 서로 겹치지 않는다(`08-verification.md` 2절 표). Docker 테스트와 smoke는 임의 포트·고유 이름을 써서 겹치지 않는다.
+- 고정 포트를 쓰는 acceptance가 서로 겹치지 않는다(`08-verification.md` 2절 표). Docker 테스트는 테스트가 고른 빈 포트를 고정하고(D-43), smoke는 Docker 임의 포트를 쓴다. 둘 다 `factory-operations-` 접두사와 `<hex8>` 접미사가 붙은 고유 컨테이너 이름이라 겹치지 않는다.
 - 병렬 task는 각자 다른 worktree(`git worktree add ../fops-<ID> -b agent/<ID> origin/main`)에서 돈다. `SESSION.yaml`, `.venv`가 worktree마다 따로다(첫 `make venv` 1~2분).
 
 scope가 겹치지 않는 조합(이 밖의 조합은 선행 관계나 scope 때문에 안 된다):
@@ -137,10 +137,10 @@ evidence commit: <SHA> (agent/tasks/<ID>.yaml)
 - merge 조건(spec D-01): PR에 `agent/tasks/<ID>.yaml`이 `status: done`으로 있고, `Validate Component / validate` CI가 통과했고, PR 본문의 acceptance·verify가 모두 pass다. 병렬이면 4절 절차까지. 그 뒤 main에 merge하고 다음 task를 최신 main에서 띄운다.
 - merge 방식은 merge commit(`gh pr merge <번호> --merge`)이다. squash·rebase는 쓰지 않는다: `agent/tasks/<ID>.yaml`의 `commit`(evidence commit)이 main 이력에 남아야 한다(조율 C-01).
 - block을 받으면: 해제 조건을 해결한다(계획 수정 PR, FIX task 추가, spec 수정 task). 해결되면 `agent/tasks/<ID>.yaml`을 지워 다시 연다.
-- OPS-10: 착수 조건 충족(Shared PR #7 merge, `cb6dc3c`, 2026-09-27). 채택 SHA와 확정본과의 차이는 `02-mqtt.md` 5.1절에 적었다(의미 차이 없음, 형식이 더 엄격). OPS-2 merge 뒤 언제 끼워 넣을지 정한다. 권장은 OPS-2 바로 뒤(M1 subagent가 이어서 하거나 별도 subagent).
+- OPS-10: 착수 조건 충족(Shared PR #7 merge, `cb6dc3c`, 2026-09-27). 채택 SHA와 확정본과의 차이는 `02-mqtt.md` 5.1절에 적었다(의미 차이 없음, 형식이 더 엄격). 조율 C-21에 따라 OPS-2 바로 뒤에 M1 subagent가 실행했고 merge되었다(D-48).
 - 사람 task: OPS-9B merge 뒤 책임자에게 HUM-1을 요청하고, 결과를 `08-verification.md` 3절대로 기록한다. OPS-10을 기다리지 않는다.
 - integration과의 경계: `/readyz`(A-09)와 Interlock 관찰 동작(A-11)은 OPS-6·OPS-7A가 spec대로 제공한다. E2E-3 단계 2의 STOP 제한 시간 2초 제안(A-11)과 `/readyz`를 E2E 시작 조건으로 쓰는 것은 integration spec이 받는다. operations에는 그 일을 하는 task가 없다.
-- Alarm Event의 Shared DOCUMENT_CHANGE 게시는 별도 subagent가 한다(조율 C-04). operations task가 아니다.
+- Alarm Event의 Shared DOCUMENT_CHANGE 게시는 별도 subagent가 한다(조율 C-04·C-20). operations task가 아니다. Shared PR #7(`cb6dc3c`)로 게시·merge되었다.
 
 ### 등록(완료: 이 계획 PR에 포함)
 

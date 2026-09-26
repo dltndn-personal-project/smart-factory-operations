@@ -111,7 +111,7 @@
 1. `.gitignore`(`.venv/`, `__pycache__/`, `.pytest_cache/`, `data/`, `.env`)를 먼저 만든다. venv·캐시가 untracked로 잡히면 `agent.py verify`가 거부한다. → A9
 2. `pyproject.toml`(pytest 설정, spec 08 2절), `requirements*.txt`(07 7절), `Makefile`의 `venv`(`.pth` 포함, 07 2절)·`test`·`run`, `.env.example`(07 1절 변수). `docker-test`는 OPS-4A, `smoke`는 OPS-9A, `feed`는 OPS-9B가 넣는다. → A8
 3. `config.py`와 `config/default.yaml`: spec 01 4절 표가 가리키는 **모든** 절(`http`, `mqtt`, `db`, `paths`, `logging`, `line`, `interlock`, `join`, `correlation`, `pdm`, `dashboard`)의 키와 범위. pydantic `extra="forbid"`, overlay 깊은 병합, 환경 변수, 종료 코드 2. `correlation.default_lag_s`가 `lag_min_s`~`lag_max_s` 안인지도 검사. → A2, A6, A7
-4. `clock.py`(`Clock`, `SystemClock`, `FakeClock`는 테스트 쪽, `iso_ms`, `parse_ts`), `log.py`(JSON 한 줄, 같은 사유 10초 억제). → A3, A4
+4. `clock.py`(`Clock`, `SystemClock`, `FakeClock`는 테스트 쪽, `iso_ms`, `parse_ts`), `log.py`(JSON 한 줄, 같은 사유 10초 억제. 억제는 WARNING 이상에 기본 적용, 호출에서 `throttle=`로 바꿈, D-47). → A3, A4
 5. `web/api.py`(`create_app`, `/healthz`만. `mqtt_connected`·`db_ok`는 StateStore가 생기기 전이라 false), `app.py`(lifespan 틀), `__main__.py serve`(uvicorn, `log_config=None`). → A5
 6. `tests/conftest.py`(1절 공용 fixture)와 `tests/unit/test_config.py`·`test_clock.py`·`test_log.py`. → A1
 7. `make test` 확인 → `agent/config.yaml`에 `unit` 추가 → `validate.py --remote`. → A10
