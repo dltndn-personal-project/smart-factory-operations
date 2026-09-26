@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations Dashboard 와이어프레임</title>
+<!-- 배치와 문구의 기준(docs/spec/06-dashboard.md 5절). 값은 예시다. 외부 요청 없음. -->
+<style>
+  :root {
+    --ground: #eef1f3; --panel: #ffffff; --ink: #1c2328; --muted: #5a6670;
+    --line: #b7c1c8; --hair: #dde3e7; --accent: #2f6f8f;
+    --normal: #2f7d4a; --caution: #a88a12; --warning: #c0661d; --critical: #b3362a; --stale: #8a949b;
+    --sans: -apple-system, "Apple SD Gothic Neo", "Segoe UI", "Malgun Gothic", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --ground: #14191c; --panel: #1c2327; --ink: #e2e8eb; --muted: #97a3ab;
+      --line: #4d5a62; --hair: #2c353a; --accent: #6bb3d4;
+      --normal: #6cc38b; --caution: #d9bd4a; --warning: #e8955a; --critical: #ec7b6e; --stale: #7d888f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.45 var(--sans); padding: 0 16px 32px; }
+  header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; padding-block: 12px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  header h1 { font-size: 17px; margin: 0; letter-spacing: .02em; }
+  .meta { color: var(--muted); font: 12px var(--mono); font-variant-numeric: tabular-nums; }
+  .ok::before, .bad::before { content: "●"; margin-right: 4px; }
+  .ok::before { color: var(--normal); } .bad::before { color: var(--critical); }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+  section { background: var(--panel); border: 1px solid var(--hair); border-radius: 6px; padding: 12px 14px; min-width: 0; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  .w4 { grid-column: span 4; } .w5 { grid-column: span 5; } .w6 { grid-column: span 6; } .w7 { grid-column: span 7; } .w8 { grid-column: span 8; } .w12 { grid-column: span 12; }
+  @media (max-width: 900px) { .grid > section { grid-column: span 12; } }
+  .big { font-size: 28px; font-weight: 600; }
+  .run { color: var(--normal); } .stop { color: var(--critical); }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-variant-numeric: tabular-nums; }
+  .kv dt { color: var(--muted); } .kv dd { margin: 0; }
+  .note { color: var(--muted); font-size: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font: 600 12px var(--mono); color: #fff; }
+  .b-normal { background: var(--normal); } .b-caution { background: var(--caution); } .b-warning { background: var(--warning); } .b-critical { background: var(--critical); } .b-stale { background: var(--stale); }
+  .btns { display: flex; gap: 8px; margin-top: 10px; }
+  button { font: 600 13px var(--sans); padding: 6px 16px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chart { width: 100%; height: 110px; display: block; border: 1px dashed var(--line); border-radius: 4px; }
+  .chart line, .chart polyline { fill: none; stroke-width: 1.5; }
+  .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: baseline; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 10px; }
+  .thumb { border: 1px solid var(--hair); border-radius: 4px; padding: 6px; font-size: 12px; }
+  .img { aspect-ratio: 1; max-width: 100%; background: repeating-linear-gradient(45deg, var(--hair) 0 6px, transparent 6px 12px); margin-bottom: 4px; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+</style>
+
+<header>
+  <h1>Factory Operations</h1>
+  <span class="meta">generated_at 2026-09-25T05:21:00.512Z</span>
+  <span class="meta ok">MQTT</span><span class="meta ok">DB</span>
+  <span class="meta">0초 전 갱신</span>
+</header>
+
+<div class="grid">
+  <section id="line" class="w5">
+    <h2>라인</h2>
+    <div class="big stop">STOPPED</div>
+    <dl class="kv">
+      <dt>Current Fault Level</dt><dd>9 <span class="note">Simulator 설정값 · 평가용</span></dd>
+      <dt>생산 진행</dt><dd>아니오</dd>
+      <dt>모터</dt><dd>0.0 rpm</dd>
+      <dt>Simulator 누계</dt><dd>113 <span class="note">simulator 누계</span></dd>
+      <dt>Interlock</dt><dd>대기 중 STOP 없음 · 마지막 trigger 05:20:59.400</dd>
+    </dl>
+    <div class="btns"><button type="button">START</button><button type="button">STOP</button></div>
+  </section>
+
+  <section id="pdm" class="w7">
+    <h2>설비 상태 (PdM) · 마지막 판정 · 3초 전</h2>
+    <div class="row">
+      <span class="badge b-stale">CRITICAL</span>
+      <span>Health Index <b>18</b></span><span>Anomaly Score <b>0.82</b></span>
+      <span class="note">판정 05:20:59.400 · 라인 정지 중 — 정지 중에는 PdM 판정이 없음</span>
+    </div>
+    <svg class="chart" viewBox="0 0 600 110" preserveAspectRatio="none" aria-label="최근 120초 추세">
+      <line x1="0" y1="22" x2="600" y2="22" stroke="var(--hair)"/><line x1="0" y1="44" x2="600" y2="44" stroke="var(--hair)"/><line x1="0" y1="66" x2="600" y2="66" stroke="var(--hair)"/>
+      <polyline stroke="var(--accent)" points="0,15 150,16 250,30 350,52 450,70 520,95 540,96"/>
+      <polyline stroke="var(--muted)" points="0,95 150,94 250,80 350,58 450,40 520,15 540,14"/>
+    </svg>
+    <div class="note">선: HI(파랑), Anomaly Score(회색) · 가로선 HI 80 / 60 / 40</div>
+  </section>
+
+  <section id="vibration" class="w6">
+    <h2>실시간 진동 · 최근 1초</h2>
+    <svg class="chart" viewBox="0 0 600 110" preserveAspectRatio="none" aria-label="x y z min/max 띠">
+      <polyline stroke="var(--accent)" points="0,20 60,14 120,24 180,12 240,22 300,16 360,25 420,13 480,21 540,15 600,20"/>
+      <polyline stroke="var(--accent)" points="0,55 60,48 120,60 180,46 240,57 300,50 360,61 420,47 480,56 540,49 600,55"/>
+      <polyline stroke="var(--accent)" points="0,92 60,88 120,95 180,86 240,93 300,89 360,96 420,87 480,92 540,88 600,91"/>
+    </svg>
+    <div class="note">x · y · z 축별 min/max 띠 · 온도 41.2 °C · 0.0 rpm</div>
+  </section>
+
+  <section id="spectrum" class="w6">
+    <h2>FFT Spectrum · PdM 제공</h2>
+    <svg class="chart" viewBox="0 0 600 110" preserveAspectRatio="none" aria-label="스펙트럼 0~500 Hz">
+      <polyline stroke="var(--accent)" points="0,105 34,105 36,40 38,105 70,105 72,70 74,105 106,105 108,85 110,105 127,105 129,60 131,105 600,105"/>
+    </svg>
+    <div class="note">패널: 스펙트럼(spectrum_x/y/z), 포락선 스펙트럼(envelope_*) · 0~500 Hz</div>
+  </section>
+
+  <section id="quality" class="w12">
+    <h2>품질</h2>
+    <div class="row"><span class="big">12.6%</span><span>Defect Rate</span><span>생산 113</span><span>검사 111</span><span>불량 14</span></div>
+    <div class="thumbs">
+      <div class="thumb"><div class="img"></div><b>P-00000113</b><br>불량 · scratch<br>Confidence —<br>Grad-CAM 현재 범위에서 제공하지 않음<br>pass-through(Simulator 정보 전달)<br>HI 22</div>
+      <div class="thumb"><div class="img"></div><b>P-00000112</b><br>양품<br>Confidence —<br>pass-through<br>HI 25</div>
+      <div class="thumb"><div class="img"></div><b>P-00000111</b><br>양품<br>Confidence —<br>pass-through<br>HI 31</div>
+      <div class="thumb"><div class="img"></div><b>P-00000110</b><br>불량 · dent<br>Confidence —<br>pass-through<br>HI 44</div>
+    </div>
+  </section>
+
+  <section id="correlation" class="w12">
+    <h2>설비-품질 상관관계</h2>
+    <div class="row">
+      <span>lag 13초 · Pearson <b>0.41</b> · Spearman <b>0.40</b> · n 131</span>
+      <span>최대 |Pearson| lag <b>13초</b> (0.41)</span>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <svg class="chart w6" viewBox="0 0 600 110" preserveAspectRatio="none" aria-label="lag별 계수">
+        <polyline stroke="var(--accent)" points="0,80 100,74 200,62 300,40 390,22 450,34 600,70"/>
+        <polyline stroke="var(--muted)" points="0,84 100,78 200,66 300,44 390,26 450,38 600,74"/>
+      </svg>
+      <svg class="chart w6" viewBox="0 0 600 110" preserveAspectRatio="none" aria-label="30초 구간 불량률과 평균 Anomaly Score">
+        <g fill="var(--hair)"><rect x="10" y="95" width="80" height="15"/><rect x="110" y="90" width="80" height="20"/><rect x="210" y="70" width="80" height="40"/><rect x="310" y="55" width="80" height="55"/><rect x="410" y="40" width="80" height="70"/></g>
+        <polyline stroke="var(--accent)" points="50,90 150,85 250,60 350,50 450,30"/>
+      </svg>
+    </div>
+    <div class="note">설비 지표 = PdM Anomaly Score, 품질 지표 = 검사 불량 여부(pass-through), 기본 lag 13초(투입 → 캡처)</div>
+  </section>
+
+  <section id="alarms" class="w6">
+    <h2>Alarm History</h2>
+    <div class="scroll"><table>
+      <tr><th>시각</th><th>severity</th><th>전이</th><th>HI</th><th>Score</th></tr>
+      <tr><td>05:20:59.400</td><td><span class="badge b-critical">CRITICAL</span></td><td>WARNING → CRITICAL</td><td>18</td><td>0.82</td></tr>
+      <tr><td>05:19:21.900</td><td><span class="badge b-warning">WARNING</span></td><td>CAUTION → WARNING</td><td>52</td><td>0.48</td></tr>
+    </table></div>
+  </section>
+
+  <section id="controls" class="w6">
+    <h2>Control History</h2>
+    <div class="scroll"><table>
+      <tr><th>기록</th><th>명령</th><th>사유</th><th>출처</th><th>결과</th></tr>
+      <tr><td>05:20:59.412</td><td>STOP</td><td>INTERLOCK_CRITICAL</td><td>operations</td><td>APPLIED</td></tr>
+      <tr><td>05:18:02.130</td><td>START</td><td>OPERATOR_START</td><td>operations</td><td>APPLIED</td></tr>
+    </table></div>
+  </section>
+</div>
+</html>
