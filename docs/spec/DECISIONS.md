@@ -1,0 +1,233 @@
+# 결정 기록
+
+> 목적: 이 Component 안에서 내린 설계·절차 결정과 그 이유를 한 곳에 둔다. 다른 Component와의 약속은 `AGREEMENTS.md`에 있다.
+> 읽어야 할 때: spec의 값이나 규칙이 왜 그런지 알아야 할 때, 결정을 바꾸려 할 때.
+> 기준일: 2026-09-27. 책임자가 채팅으로 절차 예외를 지시했고(조율 C-01), 나머지는 조율 결정(C-00~C-15)과 `docs/ARCHITECTURE.md`(리뷰 반영본)를 근거로 이 spec이 정했다.
+
+결정을 바꾸려면 새 ID로 항목을 추가하고 이전 항목의 "결정"에 `→ D-xx로 대체`를 붙인다. 지우지 않는다.
+
+## 0. 이미 확정된 결정
+
+`docs/ARCHITECTURE.md`의 [확정] 항목(책임 경계, Shared 확정 Interface, 재시도·멱등성·보안 제외, DB 기록 단독 주체, Ground Truth 평가 전용)과 조율 결정 C-00~C-15는 다시 논의하지 않고 전제로 쓴다.
+
+## 1. 절차 (책임자가 승인한 예외)
+
+### D-01 PR merge 주체
+- 문맥: `AGENTS.md`는 "Agent는 PR을 merge하지 않는다"고 정한다.
+- 선택지: (a) 규칙대로 사람이 merge (b) 조율 agent가 merge
+- 결정: (b). 조율 agent가 `Validate Component / validate` CI 통과와(구현 PR은) `agent.py finish` 통과, `agent/tasks/<ID>.yaml` `status: done`을 확인한 뒤 merge commit으로 main에 merge한다. task를 실행한 agent는 merge하지 않는다.
+- 이유: 책임자 채팅 지시(2026-09-27), 조율 C-01.
+- 영향: `HUMAN.md`, `08-verification.md` 7절
+
+### D-02 계획 승인
+- 문맥: PLAN의 새 milestone·task에는 `proposed: true`를 붙이고 사람이 지워야 착수할 수 있다.
+- 선택지: (a) 계획 PR마다 사람이 `proposed`를 지움 (b) 책임자의 채팅 지시를 승인으로 보고 `proposed` 없이 등록
+- 결정: (b). 이 spec을 따르는 계획 작업은 milestone과 task를 `proposed` 없이 등록한다. BOOT-1의 A3(manual 승인)은 이 지시로 갈음하고 계획 PR에서 정리한다(조율 C-09).
+- 이유: 책임자 채팅 지시(2026-09-27), 조율 C-01.
+- 영향: `00-overview.md` 6절
+
+### D-03 acceptance는 자동 검사만
+- 문맥: manual acceptance가 있으면 사람이 없을 때 task가 끝나지 않는다.
+- 선택지: (a) task마다 manual 유지 (b) `command`·`artifact`·`metric`만 쓰고 사람 확인은 마지막 milestone의 `owner: human` task로 모음
+- 결정: (b). 사람 확인은 `08-verification.md` 6절 목록 그대로 HUM-1 하나로 한다.
+- 이유: 책임자 채팅 지시(2026-09-27), 조율 C-01. 화면 모양 문제는 끝에서 발견될 수 있지만 수정 task로 되돌리는 비용이 작다.
+- 영향: `08-verification.md` 6·7절
+
+### D-04 교차 Component 항목의 구현 기준
+- 문맥: `SHARED_CONFIG.json` `contract_ref`가 null이다. Shared main `d0c997c`에는 다섯 Interface가 확정이고 PdM Result·Alarm Event는 미정이다.
+- 선택지: (a) 계약 채택까지 보류 (b) simulator D-04처럼 자기 AGREEMENTS만 기준 (c) 확정된 것은 Shared, 미정은 생산자 spec(자기 것은 AGREEMENTS 확정본)을 기준으로 구현하고 Shared 확정 뒤 `contract_ref` 채택
+- 결정: (c). 조율 C-04·C-05를 따른다. task의 `contract` 필드는 `contract_ref` 채택(OPS-10) 전에는 쓰지 않고 `why`나 acceptance에 `AGREEMENTS.md` 항목 ID를 적는다.
+- 이유: integration의 계약 검사가 Shared 한 곳을 기준으로 하게 하면서, 미정 Interface 때문에 구현이 멈추지 않게 한다.
+- 영향: `AGREEMENTS.md` 머리말, `00-overview.md` 6절 M5
+
+### D-05 verify 명령 추가 방식
+- 문맥: `agent/config.yaml`은 사람 관리 파일이고 `verify`가 비어 있다.
+- 선택지: (a) 사람이 추가 (b) 영역을 처음 만드는 task가 `agent/config.yaml`을 scope에 넣고 같은 PR에서 spec에 고정된 명령을 추가
+- 결정: (b). 명령과 시점은 `08-verification.md` 5절에 고정되어 있고 task는 그대로 넣는다. 약하게 바꾸지 않는다.
+- 이유: simulator D-05와 같다. D-01로 PR을 agent 쪽(조율)이 merge하므로 명령을 미리 고정해 임의 변경을 막는다.
+- 영향: `08-verification.md` 5절
+
+## 2. 도구
+
+### D-06 Python 의존성 관리
+- 문맥: 이 맥에는 Python 3.12.13과 venv·pip가 있고 uv는 없다.
+- 선택지: (a) `python3 -m venv .venv` + `pip install -r`(직접 의존 `==` 고정) (b) uv 설치 (c) 시스템 Python
+- 결정: (a). 버전은 `07-runtime.md` 7절. Docker 이미지도 같은 `requirements.txt`를 쓴다.
+- 이유: 새 도구 설치 없이 agent가 비대화식으로 만든다. simulator와 같은 방식이다. lock 파일이 없어 간접 의존이 바뀔 수 있지만 toy 범위에서 허용한다.
+- 영향: `07-runtime.md` 7절, `08-verification.md` 2절
+
+### D-07 테스트 도구와 진입점
+- 선택지: (a) pytest + 저장소 루트 `Makefile`(venv stamp) (b) 셸 스크립트 (c) verify에 명령 직접 나열
+- 결정: (a). Docker 연동 테스트는 마커 `docker`로 나눈다. testcontainers 같은 추가 라이브러리 없이 `docker run`/`docker port`를 subprocess로 부른다. Make는 macOS 기본 GNU Make 3.81.
+- 이유: verify 명령이 짧고, 요구사항이 바뀔 때만 재설치한다. simulator와 같은 구조라 조율·리뷰가 쉽다.
+- 영향: `08-verification.md` 2절
+
+### D-08 MQTT client
+- 선택지: (a) paho-mqtt 2.1 `loop_start()` 스레드 (b) aiomqtt (c) gmqtt
+- 결정: (a). MQTT 3.1.1, `CallbackAPIVersion.VERSION2`.
+- 이유: 재연결·연결 전 기동·QoS 1이 내장되어 있고 `publish()`가 스레드 안전하다. simulator와 같은 라이브러리다. 수신은 큐로 워커에 넘긴다.
+- 영향: `02-mqtt.md` 1절
+
+### D-09 테스트용 Broker·DB
+- 선택지: (a) Docker의 실제 Mosquitto 2.1.2·TimescaleDB 2.30.1-pg17 (b) 프로세스 안 가짜 broker·SQLite (c) 가짜만
+- 결정: (a). 판단 로직은 가짜로 단위 테스트하고, 실제 retain·QoS·DDL·hypertable은 같은 이미지로 확인한다. Docker가 없으면 실패한다.
+- 이유: integration이 쓸 것과 같은 구현이어야 retain·initdb·배열 열 동작이 같다. 2026-09-27에 이 맥에서 `timescale/timescaledb:2.30.1-pg17`을 받아 이 spec의 DDL을 initdb로 적용·재실행하고 `float8[]`→`real[]` 삽입을 확인했다.
+- 영향: `08-verification.md` 2·3.6절
+
+### D-10 HTTP 서버
+- 선택지: (a) FastAPI + uvicorn (b) 표준 라이브러리 `http.server` (c) Flask
+- 결정: (a). 버전은 simulator와 같다.
+- 이유: JSON API·정적 파일·`TestClient` 테스트를 한 번에 해결한다. (b)는 라우팅·오류 처리를 직접 써야 한다.
+- 영향: `06-dashboard.md` 1·2절
+
+### D-11 DB 드라이버와 접근 방식
+- 선택지: (a) psycopg 3 동기 연결 하나 + 손으로 쓴 SQL (b) SQLAlchemy ORM (c) asyncpg
+- 결정: (a). DB 스레드 하나가 연결 하나를 쓴다. SQL 문자열은 `store/sql.py`에 모은다.
+- 이유: 테이블 8개·조회 6개뿐이라 ORM의 이득이 없다. 동기 드라이버가 스레드 모델(D-14)과 맞는다. `psycopg[binary]`는 macOS arm64·Linux aarch64 wheel이 있어 컴파일이 없다.
+- 영향: `05-storage.md` 3절
+
+### D-12 차트
+- 선택지: (a) 차트 라이브러리 파일을 저장소에 넣음(vendored) (b) CDN (c) canvas 2D로 직접 그림(`plot.js`)
+- 결정: (c). 선 그래프·min/max 띠·막대 세 가지만 그린다.
+- 이유: 필요한 그림이 단순하다. (a)는 외부 파일을 받아 넣고 라이선스를 챙겨야 하고, (b)는 오프라인 시연이 안 된다. Node 빌드 단계도 없다. ARCHITECTURE 9절의 "vendored 경량 라이브러리"를 바꾼다.
+- 영향: `06-dashboard.md` 5절
+
+### D-13 상관계수 계산
+- 선택지: (a) scipy `pearsonr`·`spearmanr` (b) numpy로 직접(순위·동률 처리 포함)
+- 결정: (a).
+- 이유: 동률 순위와 경계 조건을 직접 구현하다 틀릴 위험을 없앤다. 이미지 크기 증가(수십 MB)는 toy 범위에서 문제없다.
+- 영향: `04-analysis.md` 2.2절
+
+## 3. 구조
+
+### D-14 스레드 모델
+- 문맥: ARCHITECTURE 4.1은 도메인 워커가 DB 쓰기까지 한다.
+- 선택지: (a) 워커가 DB도 씀 (b) 워커와 DB 스레드를 나누고 큐로 연결 (c) asyncio 하나로 통일
+- 결정: (b). paho 스레드 → inbound 큐 → 도메인 워커(판단·발행) → DB 큐 → DB 스레드. HTTP는 uvicorn main 스레드.
+- 이유: DB가 느리거나 끊겨도(연결 제한 5초) Interlock 판단이 막히지 않는다. 도메인 상태를 바꾸는 것은 워커 하나라 락은 StateStore 하나로 충분하다. (c)는 paho·psycopg 동기 API와 맞지 않는다.
+- 영향: `01-core.md` 2절
+
+### D-15 스냅숏 출처
+- 선택지: (a) HTTP 요청마다 DB 조회 (b) 실시간 항목은 메모리, 목록·집계는 DB 스레드가 2초마다 요약해 메모리에 둠 (c) 모두 메모리 카운터
+- 결정: (b).
+- 이유: 요청 처리가 DB에 기대지 않고, 불량률·목록은 DB 한 소스라 재시작 뒤에도 맞다. 요약 주기 2초를 더해도 갱신 지연 예상 최악값이 약 3.4초로 5초 안이다(`08-verification.md` 4.1절). (c)는 재시작하면 집계가 틀어진다.
+- 영향: `05-storage.md` 5절, `06-dashboard.md` 3절
+
+### D-16 운영자 명령 경로
+- 선택지: (a) HTTP 핸들러가 직접 발행·기록 (b) 워커 큐에 넣고 future로 결과를 받음
+- 결정: (b). 2초 안에 답이 없으면 504.
+- 이유: 명령 추적(`issued`)과 Interlock 상태를 워커 하나만 바꾼다.
+- 영향: `03-control.md` 3.3절
+
+## 4. 판단 규칙
+
+### D-17 재가동 기준 시각
+- 문맥: 정지 중 PdM은 결과를 내지 않아 정지 원인인 `CRITICAL`이 마지막 결과로 남는다. ARCHITECTURE 6.2 규칙 1은 "기동 직후 기준 시각 없음"이었다.
+- 선택지: (a) 기동 직후 없음, 이후 `STOPPED`·알 수 없음 → `RUNNING` 때 설정 (b) 기동 뒤 첫 `RUNNING` 관측도 같은 규칙으로 설정 (c) 결과 수신 시각(Operations 시계)으로 비교
+- 결정: (b). `RUNNING`이 아니던 상태(기동 직후 `UNKNOWN` 포함)에서 `RUNNING`을 보면 그 Line Status `timestamp`를 기준으로 두고, `pdm.timestamp > 기준`인 결과만 판단에 쓴다.
+- 이유: 규칙이 한 줄로 같아지고, 기동 직후 retained Line Status보다 먼저 도착한 옛 결과를 판단에서 뺀다(새 결과는 0.5초마다 온다). 기준과 PdM `timestamp`가 둘 다 Simulator 시계라 비교가 정확하다. (c)는 두 시계와 도착 지연이 섞인다.
+- 영향: `03-control.md` 1.2절, `AGREEMENTS.md` A-04·A-05
+
+### D-18 STOP 반복 규칙
+- 선택지: (a) 대기 중 STOP이 끝나면 조건이 참인 동안 다시 보냄 (b) 대기 규칙 + 같은 PdM 결과로 두 번 보내지 않음 + `REJECTED`는 시간 초과까지 대기
+- 결정: (b).
+- 이유: (a)는 PdM이 멈추고 라인이 알 수 없는 동안 같은 옛 결과로 5초마다 STOP을 보낸다. `REJECTED`에서 대기를 바로 끝내면 0.5초마다 STOP이 반복된다. PdM이 살아 있으면 새 결과가 0.5초마다 오므로 STOP 유실 뒤 재발행은 그대로 된다.
+- 영향: `03-control.md` 3.2절
+
+### D-19 알 수 없는 라인에서의 STOP
+- 결정: Line Status 미수신·`online: false`여도 `CRITICAL`이면 STOP을 보낸다(ARCHITECTURE 6.2 유지).
+- 이유: 안전 쪽 선택이고, 이미 정지면 simulator가 `NO_CHANGE`로 끝난다.
+- 영향: `03-control.md` 3.2절
+
+### D-20 끊긴 동안 발행하지 않음
+- 선택지: (a) paho 대기열에 넣어 재연결 뒤 전송 (b) 끊겨 있으면 발행하지 않고 호출자에게 알림
+- 결정: (b). Interlock은 다음 평가에서 다시 판단하고, 운영자 명령은 503, Alarm Event는 DB 기록만 한다.
+- 이유: 재연결이 수십 초 뒤라면 그 사이 상황이 바뀐 오래된 STOP·START가 나간다.
+- 영향: `02-mqtt.md` 4.2절
+
+### D-21 Alarm 규칙
+- 결정: 심각도가 올라가 `WARNING`·`CRITICAL`이 될 때만 Alarm. 실제 재가동(`STOPPED → RUNNING`, 사이의 offline 허용) 때만 이전 상태 초기화. 기동 직후 첫 동기화와 가동 중 끊김 후 복귀는 초기화하지 않는다. 재가동 기준 이전 결과 제외. ack·해제·떨림 억제 없음.
+- 이유: Shared 4.4의 필수 대상(Warning, Critical)을 만족하는 최소 규칙이다. 재가동 뒤 같은 고장이 다시 드러나면 새 Alarm으로 보이게 한다. 초기화를 기준 시각 갱신과 같은 조건으로 두면 첫 Line Status가 PdM 결과보다 늦게 오거나 simulator가 잠깐 끊겼다 돌아올 때 정지·재가동 없이 같은 Alarm이 다시 나간다(spec 리뷰 4번). 떨림 억제는 PdM 평활화 책임이다.
+- 영향: `03-control.md` 4절
+
+### D-22 Alarm Event 발행과 Payload
+- 문맥: 조율 C-04·C-15로 Operations가 생산자다. Runtime 소비자는 없다. ARCHITECTURE 초안은 `from_state`·`to_state`·`severity`를 모두 두었다.
+- 선택지: (a) 발행하지 않음(DB만) (b) 발행, `severity` + `previous_state` (c) 발행, 초안 그대로
+- 결정: (b). 필드는 `AGREEMENTS.md` A-02.
+- 이유: integration이 DB 없이도 Alarm 흐름을 관찰할 수 있고 비용이 작다. 초안의 `to_state`는 `severity`와 항상 같아 중복이라 뺐다.
+- 영향: `AGREEMENTS.md` A-02, `05-storage.md` 4절 `alarm`
+
+### D-23 오래된 판정 표시
+- 결정: PdM 결과 수신 뒤 2초(4 hop)가 지나면 "마지막 판정"으로 표시하고, 정지 중·재가동 전 판정 문구를 덧붙인다. 스펙트럼 3초, 진동 1초, Line Status 3초. 모두 Operations 단조 시계의 수신 경과로 판정한다.
+- 이유: 정지 중 PdM이 결과를 내지 않을 때 화면의 HI·State가 현재 값처럼 보이지 않게 한다(PdM 아키텍처 6.2절 제안). 수신 경과로 재면 시계가 다른 문제를 피한다.
+- 영향: `06-dashboard.md` 4절
+
+### D-24 운영자 버튼
+- 결정: Dashboard에 `START`와 `STOP`을 둔다. `CRITICAL` 판정 중 `START`는 막지 않고 확인 창으로 경고한다.
+- 이유: 재가동은 사람의 판단이다(ARCHITECTURE 6.2 규칙 5). 막으면 Fault Level을 내린 뒤 PdM 새 판정을 받기 전에 라인을 돌릴 수 없다(정지 중에는 판정이 없다).
+- 영향: `03-control.md` 3.3절, `06-dashboard.md` 5절
+
+## 5. 데이터
+
+### D-25 DB 구성과 센서 저장 단위
+- 결정: PostgreSQL+TimescaleDB 인스턴스·DB 하나, 스키마 `public`. 센서는 chunk 한 행(`real[]` 세 열), `sensor_chunk`만 hypertable. 이미지 `timescale/timescaledb:2.30.1-pg17`.
+- 이유: 조율 C-15. 샘플 단위 전개는 초당 10,000행이다. PostgreSQL 17은 2026-09 기준 TimescaleDB 2.30이 지원하는 안정 버전이고 arm64 이미지가 있다. 태그를 고정해 integration과 테스트가 같은 버전을 쓴다.
+- 영향: `05-storage.md` 1·4절, `AGREEMENTS.md` A-08
+
+### D-26 DDL 적용 주체
+- 선택지: (a) Operations가 기동 때 `schema.sql` 실행 (b) integration(과 테스트 fixture)이 initdb로 적용하고 Operations는 `schema_info` 버전만 확인
+- 결정: (b).
+- 이유: integration 아키텍처 4.5절이 이미 "Runtime Component 기동 전에 DDL 실행"으로 정했다. 적용 경로를 하나로 두어야 적용 실패를 integration이 관찰·기록할 수 있다.
+- 영향: `05-storage.md` 3절, `AGREEMENTS.md` A-08
+
+### D-27 `line_status_change` 키
+- 문맥: ARCHITECTURE 7.2는 키를 `timestamp`로 했지만 `online: false` 메시지에는 `timestamp`가 없다.
+- 결정: `id bigserial` 키, `received_at`(Operations 시각) 필수, `timestamp` null 허용.
+- 영향: `05-storage.md` 4절
+
+### D-28 `control` 기록
+- 결정: 자기 명령은 발행 즉시 INSERT하고 결과를 UPDATE한다. 모르는 `command_id`는 `origin = observed`로 INSERT(`ON CONFLICT DO NOTHING`). `command_id`가 null인 거부 결과는 기록하지 않는다. 정렬용으로 `recorded_at`을 둔다.
+- 이유: Line Status가 1초마다 같은 `last_command`를 다시 싣고 오고, Operations 재시작 뒤 retained Line Status로 옛 결과가 다시 보여도 행이 중복되지 않는다.
+- 영향: `03-control.md` 3.4절, `05-storage.md` 2·4절
+
+### D-29 불량률 분모
+- 결정: 불량 검사 수 / 검사 수(`inspection` 한 소스). 생산 수는 `product` 행 수로 따로 보인다.
+- 이유: 검사 전 제품이 분모에 들어가면 불량률이 낮게 나온다(ARCHITECTURE 리뷰 10번).
+- 영향: `05-storage.md` 5절
+
+### D-30 상관분석 방법
+- 결정: 설비 지표 PdM `anomaly_score`, 품질 지표 `defect`, lag 0~30초 1초 간격, Pearson·Spearman, 기본 lag 13초, 최대 차 5초의 as-of, 최소 표본 20, 10초마다 DB 전체로 재계산.
+- 이유: ARCHITECTURE 6.8 그대로다. 범위를 "서비스 기동 후"에서 "DB 전체"로 바꿨다. integration이 매 실행 DB를 비우므로 같은 결과이고, Operations 재시작에 영향받지 않는다.
+- 영향: `04-analysis.md` 2절
+
+### D-31 진동 표시
+- 결정: 최근 1초(chunk 10개)를 축별 500구간 min/max로 솎아 보낸다.
+- 이유: 25 KB × 10을 그대로 보내면 무겁고, 단순 솎기(20개 중 하나)는 3.2 kHz 공진 임펄스를 놓친다. min/max 띠는 임펄스 크기를 보존한다. RMS 같은 특징은 PdM 책임이라 계산하지 않는다.
+- 영향: `06-dashboard.md` 3절
+
+### D-32 스펙트럼 느슨한 해석
+- 결정: 숫자 배열 필드를 모두 계열로 보고, 이름의 `envelope` 여부로 패널을 나누며, 간격 필드가 없으면 bin 번호로 그린다.
+- 이유: PdM spec이 병렬로 작성 중이라 필드 이름이 확정되지 않았다. 표시 전용이라 이름이 조금 달라도 화면이 동작하는 쪽이 낫다(조율 C-12).
+- 영향: `02-mqtt.md` 3.7절, `AGREEMENTS.md` A-06
+
+## 6. 실행·검증
+
+### D-33 포트와 준비 신호
+- 결정: HTTP 8080 하나. `/healthz`(프로세스 생존, 이미지 HEALTHCHECK)와 `/readyz`(MQTT 연결 + DB 스키마 확인)를 나눈다.
+- 이유: Broker·DB가 늦게 떠도 컨테이너는 healthy가 되어 compose 순서 문제를 피하고, E2E는 `/readyz`로 실제 준비를 기다린다. 8080은 simulator 8000과 겹치지 않는다.
+- 영향: `06-dashboard.md` 2절, `AGREEMENTS.md` A-09
+
+### D-34 Dashboard 5초 측정 방법
+- 결정: 측정 도구가 MQTT 수신 시각과 스냅숏 반영 시각을 자기 시계로 재고, 브라우저 polling 간격 1.0초, 측정 중 스냅숏 응답 시간 최댓값(0.5초 이하여야 함), 렌더링 예산 0.2초(사람 확인)를 더한 최댓값이 5.0초 이하.
+- 이유: `generated_at`과 Payload `timestamp`는 다른 호스트 시계라 빼면 시계 차가 섞인다. 브라우저의 실제 가져감은 자동화하지 않으므로(headless 브라우저 없음) polling 간격을 최악값으로 더한다. Component와 integration이 같은 방법을 쓰면 결과를 비교할 수 있다.
+- 영향: `08-verification.md` 4.1절, `AGREEMENTS.md` A-10
+
+### D-35 개발용 compose와 가짜 입력
+- 결정: 저장소에 `compose.yaml`(Mosquitto, DB, 예시 이미지 넣기, Operations)과 `scripts/fake_feed.py`(Simulator·PdM·Vision 흉내)를 둔다. 사람 확인(HUM-1)은 이것으로 한다.
+- 이유: 다른 Component 없이 화면 전체와 Interlock 흐름을 볼 수 있다. 시스템 시연은 integration의 compose로 한다. 예시 이미지는 개발용 볼륨에 복사하고 Image Storage 자체를 bind mount하지 않는다(Shared CONVENTIONS).
+- 영향: `07-runtime.md` 4·5절, `08-verification.md` 6절
+
+### D-36 와이어프레임
+- 결정: `docs/WIREFRAME.html`에 화면 배치 한 장을 둔다(외부 요청 없는 정적 HTML).
+- 이유: 칸이 많아 표만으로는 배치를 구현자가 정해야 한다. simulator와 같은 방식이다.
+- 영향: `06-dashboard.md` 5절
